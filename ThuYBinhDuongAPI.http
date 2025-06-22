@@ -1,0 +1,6 @@
+@ThuYBinhDuongAPI_HostAddress = http://localhost:5074
+
+GET {{ThuYBinhDuongAPI_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
