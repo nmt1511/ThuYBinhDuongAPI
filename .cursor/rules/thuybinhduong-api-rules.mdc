@@ -1,0 +1,190 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# ThuYBinhDuong Veterinary Clinic API - Development Rules
+
+## Project Overview
+This is a .NET 9.0 Web API for a Vietnamese veterinary clinic management system. The API handles user authentication, customer management, pet records, appointments, and medical histories.
+
+## Project Architecture
+
+### Entry Point & Configuration
+- **Main entry:** [Program.cs](mdc:Program.cs) - Contains all service registrations, JWT configuration, Swagger setup, and middleware pipeline
+- **Database Context:** [Models/ThuybinhduongContext.cs](mdc:Models/ThuybinhduongContext.cs) - Entity Framework Core DbContext with all entity configurations
+
+### Core Components Structure
+
+#### 1. Controllers (`Controllers/`)
+- **Authentication:** [Controllers/UserController.cs](mdc:Controllers/UserController.cs) - Handles registration, login, logout, user management
+- **Authorization:** [Controllers/AuthorizeRoleAttribute.cs](mdc:Controllers/AuthorizeRoleAttribute.cs) - Custom role-based authorization attribute
+
+#### 2. Data Transfer Objects (`Data/Dtos/`)
+- **Authentication DTOs:** [Data/Dtos/LoginDto.cs](mdc:Data/Dtos/LoginDto.cs), [Data/Dtos/RegisterDto.cs](mdc:Data/Dtos/RegisterDto.cs), [Data/Dtos/UserResponseDto.cs](mdc:Data/Dtos/UserResponseDto.cs)
+- **Pattern:** All DTOs use DataAnnotations for validation with Vietnamese error messages
+
+#### 3. Models (`Models/`)
+- **Core Entities:** [Models/User.cs](mdc:Models/User.cs), [Models/Customer.cs](mdc:Models/Customer.cs), [Models/Pet.cs](mdc:Models/Pet.cs)
+- **Supporting Entities:** [Models/Appointment.cs](mdc:Models/Appointment.cs), [Models/Doctor.cs](mdc:Models/Doctor.cs), [Models/MedicalHistory.cs](mdc:Models/MedicalHistory.cs), [Models/Service.cs](mdc:Models/Service.cs), [Models/Feedback.cs](mdc:Models/Feedback.cs), [Models/News.cs](mdc:Models/News.cs)
+
+#### 4. Services (`Services/`)
+- **JWT Service:** [Services/IJwtService.cs](mdc:Services/IJwtService.cs), [Services/JwtService.cs](mdc:Services/JwtService.cs) - Token generation and validation
+
+## Coding Conventions & Patterns
+
+### 1. API Controller Standards
+- All controllers inherit from `ControllerBase` and use `[ApiController]` attribute
+- Route pattern: `[Route("api/[controller]")]`
+- Use dependency injection for `DbContext`, services, and `ILogger`
+- Vietnamese XML documentation comments for all public methods
+- Consistent error handling with try-catch blocks and proper HTTP status codes
+
+### 2. Authentication & Authorization
+- JWT Bearer token authentication configured in [Program.cs](mdc:Program.cs)
+- Role-based authorization using custom `[AuthorizeRole(params int[] roles)]` attribute
+- **Roles**: 0=Customer (Khách hàng), 1=Administrator (Quản trị viên)
+- Password hashing using SHA256 (seen in UserController)
+- Claims include UserId, Username, and Role
+
+### 3. DTO Pattern Implementation
+- Separate DTOs for Create, Update, and Response operations
+- Use DataAnnotations for validation with Vietnamese error messages
+- Example: `[Required(ErrorMessage = "Tên đăng nhập là bắt buộc")]`
+- Response DTOs exclude sensitive data (like passwords)
+- Include pagination support in list endpoints
+
+### 4. Database & Entity Framework
+- Entity Framework Core with SQL Server
+- Database-first approach (models generated from existing database)
+- Entities use snake_case column names mapped to PascalCase properties
+- Navigation properties properly configured with foreign key relationships
+- Use async/await for all database operations
+
+### 5. Error Handling Standards
+- Consistent error response format: `{ message: "Vietnamese error message" }`
+- Use appropriate HTTP status codes:
+  - 400 BadRequest for validation errors
+  - 401 Unauthorized for authentication failures
+  - 403 Forbidden for authorization failures
+  - 404 NotFound for missing resources
+  - 500 InternalServerError for unexpected errors
+- Log errors with ILogger before returning error responses
+
+### 6. API Documentation
+- Swagger/OpenAPI configured with JWT Bearer authentication
+- Vietnamese API documentation and descriptions
+- Contact information: info@thuybinhduong.com
+- Development-only Swagger UI at `/swagger`
+
+## Development Guidelines
+
+### 1. Adding New Controllers
+1. Inherit from `ControllerBase` with `[ApiController]` and `[Route("api/[controller]")]`
+2. Inject required dependencies (DbContext, services, ILogger)
+3. Add XML documentation comments in Vietnamese
+4. Implement proper error handling and logging
+5. Use appropriate authorization attributes
+6. Follow the established DTO pattern
+
+### 2. Adding New DTOs
+1. Place in appropriate subfolder under `Data/Dtos/`
+2. Use DataAnnotations for validation
+3. Include Vietnamese error messages
+4. Follow naming conventions: CreateXDto, UpdateXDto, XResponseDto
+
+### 3. Adding New Services
+1. Create interface in `Services/` folder
+2. Register service in [Program.cs](mdc:Program.cs) DI container
+3. Follow existing patterns from [Services/IJwtService.cs](mdc:Services/IJwtService.cs)
+
+### 4. Database Changes
+1. Update [Models/ThuybinhduongContext.cs](mdc:Models/ThuybinhduongContext.cs) if needed
+2. Ensure proper entity relationships and configurations
+3. Use migrations for schema changes
+
+### 5. Security Considerations
+- Never expose sensitive data in API responses
+- Use HTTPS redirection (configured in Program.cs)
+- Validate all input data using DTOs and ModelState
+- Use role-based authorization consistently
+- Hash passwords properly (current implementation uses SHA256)
+
+## Configuration Files
+- **App Settings:** [appsettings.json](mdc:appsettings.json), [appsettings.Development.json](mdc:appsettings.Development.json)
+- **Project File:** [ThuYBinhDuongAPI.csproj](mdc:ThuYBinhDuongAPI.csproj)
+- **Launch Settings:** [Properties/launchSettings.json](mdc:Properties/launchSettings.json)
+
+## Vietnamese Language Support
+- All user-facing messages and error responses are in Vietnamese
+- API documentation and comments use Vietnamese
+- Business logic reflects Vietnamese veterinary clinic operations
+- Ensure proper UTF-8 encoding for Vietnamese characters
+
+This API serves a Vietnamese veterinary clinic, so all business logic, error messages, and documentation should maintain Vietnamese language support and cultural context.
+
+## Business Rules & Requirements
+
+### User Roles & Permissions
+- **Role 0 - Customer (Khách hàng)**: Can manage own profile, pets, appointments, view services and news
+- **Role 1 - Administrator (Quản trị viên)**: Full system access and management capabilities
+
+### Appointment Status Rules
+- **Status 0**: Chờ xác nhận (Pending) - Customer can cancel
+- **Status 1**: Đã xác nhận (Confirmed) - Only admin can modify
+- **Status 2**: Hoàn thành (Completed) - Cannot be modified
+- **Status 3**: Đã hủy (Cancelled) - Cannot be modified
+
+### Customer Features (Role 0) - Priority Implementation
+
+#### 1. Registration & Authentication
+- **Registration**: Must create both User and Customer records
+  - User table: username, password, email, phone_number, role=0, created_at
+  - Customer table: customer_name, address, gender, user_id (foreign key)
+  - Both records created in single transaction
+- **Login**: Username and password authentication with JWT token response
+
+#### 2. Pet Management (Customer can manage own pets only)
+- **View pets**: GET /api/pets - List customer's pets only
+- **Add pet**: POST /api/pets - Create new pet for logged-in customer
+- **Update pet**: PUT /api/pets/{id} - Only if pet belongs to customer
+- **Delete pet**: DELETE /api/pets/{id} - Only if pet belongs to customer
+- **Authorization**: Use customer_id from JWT claims to filter pets
+
+#### 3. Appointment Management
+- **Create appointment**: POST /api/appointments
+  - Customer can create appointments for their pets
+  - Default status = 0 (Chờ xác nhận)
+  - Include pet_id, service_id, appointment_date, appointment_time, notes
+- **View appointments**: GET /api/appointments - Customer's appointments only
+- **Cancel appointment**: DELETE /api/appointments/{id}
+  - Only allowed if status = 0 (Chờ xác nhận)
+  - Changes status to 3 (Đã hủy)
+- **Authorization**: Filter by customer_id from JWT claims
+
+#### 4. Information Services (Public/Customer accessible)
+- **View news**: GET /api/news - List news/events with search functionality
+  - Implement search by title, content, or tags
+  - Support pagination
+- **View services**: GET /api/services - List available services with search
+  - Search by service name or description
+  - Can be reused for admin role
+  - Include service categories if needed
+
+### Data Relationships for Customer Features
+- Customer ← User (customer.user_id = user.user_id)
+- Pet ← Customer (pet.customer_id = customer.customer_id)
+- Appointment ← Pet (appointment.pet_id = pet.pet_id)
+- Appointment ← Service (appointment.service_id = service.service_id)
+
+### Implementation Priority
+1. **First**: Complete User/Customer registration with proper foreign key relationships
+2. **Second**: Pet management endpoints with customer authorization
+3. **Third**: Appointment creation and cancellation with status rules
+4. **Fourth**: News and Services viewing with search functionality
+
+### Security for Customer Features
+- Always validate that customer can only access their own data
+- Use JWT claims to get customer_id for data filtering
+- Implement proper authorization checks in all endpoints
+- Validate appointment cancellation rules (only status 0 can be cancelled)

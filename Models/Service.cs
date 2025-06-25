@@ -11,15 +11,13 @@ public partial class Service
 
     public string? Description { get; set; }
 
-    public decimal Price { get; set; }
+    public decimal? Price { get; set; }
 
     public int? Duration { get; set; }
 
-    public int? CategoryId { get; set; }
+    public string? Category { get; set; }
 
     public bool? IsActive { get; set; }
 
     public virtual ICollection<Appointment> Appointments { get; set; } = new List<Appointment>();
-
-    public virtual ServiceCategory? Category { get; set; }
 }

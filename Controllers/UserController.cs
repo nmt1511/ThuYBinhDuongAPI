@@ -8,368 +8,391 @@ using ThuYBinhDuongAPI.Data.Dtos;
 using ThuYBinhDuongAPI.Models;
 using ThuYBinhDuongAPI.Services;
 
-namespace ThuYBinhDuongAPI.Controllers;
-
-/// <summary>
-/// Controller quản lý người dùng - đăng ký và đăng nhập
-/// </summary>
-[ApiController]
-[Route("api/[controller]")]
-public class UserController : ControllerBase
+namespace ThuYBinhDuongAPI.Controllers
 {
-    private readonly ThuybinhduongContext _context;
-    private readonly ILogger<UserController> _logger;
-    private readonly IJwtService _jwtService;
-
-    public UserController(ThuybinhduongContext context, ILogger<UserController> logger, IJwtService jwtService)
+    [ApiController]
+    [Route("api/[controller]")]
+    public class UserController : ControllerBase
     {
-        _context = context;
-        _logger = logger;
-        _jwtService = jwtService;
-    }
+        private readonly ThuybinhduongContext _context;
+        private readonly IJwtService _jwtService;
+        private readonly ILogger<UserController> _logger;
 
-    /// <summary>
-    /// Đăng ký tài khoản người dùng mới
-    /// </summary>
-    /// <param name="registerDto">Thông tin đăng ký</param>
-    /// <returns>Thông tin người dùng sau khi đăng ký thành công</returns>
-    [HttpPost("register")]
-    public async Task<ActionResult<UserResponseDto>> Register(RegisterDto registerDto)
-    {
-        try
+        public UserController(ThuybinhduongContext context, IJwtService jwtService, ILogger<UserController> logger)
         {
-            // Kiểm tra tính hợp lệ của dữ liệu đầu vào
-            if (!ModelState.IsValid)
-            {
-                return BadRequest("Dữ liệu đầu vào không hợp lệ");
-            }
-
-            // Kiểm tra tên đăng nhập đã tồn tại chưa
-            var existingUserByUsername = await _context.Users
-                .FirstOrDefaultAsync(u => u.Username == registerDto.Username);
-            if (existingUserByUsername != null)
-            {
-                return Conflict("Tên đăng nhập đã tồn tại");
-            }
-
-            // Kiểm tra email đã tồn tại chưa
-            var existingUserByEmail = await _context.Users
-                .FirstOrDefaultAsync(u => u.Email == registerDto.Email);
-            if (existingUserByEmail != null)
-            {
-                return Conflict("Email đã được sử dụng");
-            }
-
-            // Kiểm tra vai trò có tồn tại không
-            var role = await _context.Roles.FindAsync(registerDto.Role);
-            if (role == null)
-            {
-                return BadRequest("Vai trò không hợp lệ");
-            }
-
-            // Mã hóa mật khẩu
-            var hashedPassword = HashPassword(registerDto.Password);
-
-            // Tạo người dùng mới
-            var newUser = new User
-            {
-                Username = registerDto.Username,
-                Password = hashedPassword,
-                Email = registerDto.Email,
-                PhoneNumber = registerDto.PhoneNumber,
-                Role = registerDto.Role,
-                CreatedAt = DateTime.Now
-            };
-
-            // Thêm vào cơ sở dữ liệu
-            _context.Users.Add(newUser);
-            await _context.SaveChangesAsync();
-
-            _logger.LogInformation("Đăng ký tài khoản thành công cho người dùng: {Username}", registerDto.Username);
-
-            // Tạo JWT token cho người dùng mới
-            var token = _jwtService.GenerateToken(newUser, role.Name);
-
-            // Trả về thông tin người dùng (không bao gồm mật khẩu) kèm JWT token
-            var userResponse = new UserResponseDto
-            {
-                UserId = newUser.UserId,
-                Username = newUser.Username,
-                Email = newUser.Email,
-                PhoneNumber = newUser.PhoneNumber,
-                Role = newUser.Role,
-                RoleName = role.Name,
-                CreatedAt = newUser.CreatedAt,
-                Token = token
-            };
-
-            return CreatedAtAction(nameof(GetUserById), new { id = newUser.UserId }, userResponse);
+            _context = context;
+            _jwtService = jwtService;
+            _logger = logger;
         }
-        catch (Exception ex)
+
+        /// <summary>
+        /// Đăng ký tài khoản mới
+        /// </summary>
+        [HttpPost("register")]
+        public async Task<IActionResult> Register([FromBody] RegisterDto registerDto)
         {
-            _logger.LogError(ex, "Lỗi khi đăng ký tài khoản cho người dùng: {Username}", registerDto.Username);
-            return StatusCode(500, "Có lỗi xảy ra trong quá trình đăng ký. Vui lòng thử lại sau.");
-        }
-    }
-
-    /// <summary>
-    /// Đăng nhập vào hệ thống
-    /// </summary>
-    /// <param name="loginDto">Thông tin đăng nhập</param>
-    /// <returns>Thông tin người dùng sau khi đăng nhập thành công</returns>
-    [HttpPost("login")]
-    public async Task<ActionResult<UserResponseDto>> Login(LoginDto loginDto)
-    {
-        try
-        {
-            // Kiểm tra tính hợp lệ của dữ liệu đầu vào
-            if (!ModelState.IsValid)
+            try
             {
-                return BadRequest("Dữ liệu đầu vào không hợp lệ");
+                if (!ModelState.IsValid)
+                {
+                    return BadRequest(ModelState);
+                }
+
+                // Kiểm tra username đã tồn tại
+                if (await _context.Users.AnyAsync(u => u.Username == registerDto.Username))
+                {
+                    return BadRequest(new { message = "Tên đăng nhập đã tồn tại" });
+                }
+
+                // Kiểm tra email đã tồn tại
+                if (await _context.Users.AnyAsync(u => u.Email == registerDto.Email))
+                {
+                    return BadRequest(new { message = "Email đã được sử dụng" });
+                }
+
+                // Mã hóa mật khẩu
+                var passwordHash = HashPassword(registerDto.Password);
+
+                // Tạo user mới
+                var user = new User
+                {
+                    Username = registerDto.Username,
+                    Password = passwordHash,
+                    Email = registerDto.Email,
+                    PhoneNumber = registerDto.PhoneNumber,
+                    Role = registerDto.Role,
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                // Bắt đầu transaction để tạo cả User và Customer
+                using var transaction = await _context.Database.BeginTransactionAsync();
+
+                try
+                {
+                    _context.Users.Add(user);
+                    await _context.SaveChangesAsync(); // Lưu để có UserId
+
+                    // Nếu role = 0 (khách hàng), tạo thêm record Customer
+                    if (registerDto.Role == 0)
+                    {
+                        var customer = new Customer
+                        {
+                            UserId = user.UserId,
+                            CustomerName = registerDto.CustomerName,
+                            Address = registerDto.Address,
+                            Gender = registerDto.Gender
+                        };
+
+                        _context.Customers.Add(customer);
+                        await _context.SaveChangesAsync();
+                    }
+
+                    await transaction.CommitAsync();
+                }
+                catch
+                {
+                    await transaction.RollbackAsync();
+                    throw;
+                }
+
+                // Tạo JWT token
+                var token = _jwtService.GenerateToken(user);
+
+                var response = new UserResponseDto
+                {
+                    UserId = user.UserId,
+                    Username = user.Username,
+                    Email = user.Email,
+                    PhoneNumber = user.PhoneNumber,
+                    Role = user.Role,
+                    CreatedAt = user.CreatedAt,
+                    Token = token
+                };
+
+                _logger.LogInformation($"User {user.Username} registered successfully");
+                return CreatedAtAction(nameof(GetProfile), new { id = user.UserId }, response);
             }
-
-            // Tìm người dùng theo tên đăng nhập
-            var user = await _context.Users
-                .Include(u => u.RoleNavigation)
-                .FirstOrDefaultAsync(u => u.Username == loginDto.Username);
-
-            if (user == null)
+            catch (Exception ex)
             {
-                return Unauthorized("Tên đăng nhập hoặc mật khẩu không chính xác");
+                _logger.LogError(ex, "Error during user registration");
+                return StatusCode(500, new { message = "Đã xảy ra lỗi trong quá trình đăng ký" });
             }
+        }
 
-            // Kiểm tra mật khẩu
-            if (!VerifyPassword(loginDto.Password, user.Password))
+        /// <summary>
+        /// Đăng nhập
+        /// </summary>
+        [HttpPost("login")]
+        public async Task<IActionResult> Login([FromBody] LoginDto loginDto)
+        {
+            try
             {
-                return Unauthorized("Tên đăng nhập hoặc mật khẩu không chính xác");
+                if (!ModelState.IsValid)
+                {
+                    return BadRequest(ModelState);
+                }
+
+                // Tìm user theo username
+                var user = await _context.Users
+                    .FirstOrDefaultAsync(u => u.Username == loginDto.Username);
+
+                if (user == null || !VerifyPassword(loginDto.Password, user.Password))
+                {
+                    return Unauthorized(new { message = "Tên đăng nhập hoặc mật khẩu không đúng" });
+                }
+
+                // Tạo JWT token
+                var token = _jwtService.GenerateToken(user);
+
+                var response = new UserResponseDto
+                {
+                    UserId = user.UserId,
+                    Username = user.Username,
+                    Email = user.Email,
+                    PhoneNumber = user.PhoneNumber,
+                    Role = user.Role,
+                    CreatedAt = user.CreatedAt,
+                    Token = token
+                };
+
+                _logger.LogInformation($"User {user.Username} logged in successfully");
+                return Ok(response);
             }
-
-            _logger.LogInformation("Đăng nhập thành công cho người dùng: {Username}", loginDto.Username);
-
-            // Tạo JWT token cho người dùng
-            var token = _jwtService.GenerateToken(user, user.RoleNavigation.Name);
-
-            // Trả về thông tin người dùng (không bao gồm mật khẩu) kèm JWT token
-            var userResponse = new UserResponseDto
+            catch (Exception ex)
             {
-                UserId = user.UserId,
-                Username = user.Username,
-                Email = user.Email,
-                PhoneNumber = user.PhoneNumber,
-                Role = user.Role,
-                RoleName = user.RoleNavigation.Name,
-                CreatedAt = user.CreatedAt,
-                Token = token
-            };
-
-            return Ok(userResponse);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Lỗi khi đăng nhập cho người dùng: {Username}", loginDto.Username);
-            return StatusCode(500, "Có lỗi xảy ra trong quá trình đăng nhập. Vui lòng thử lại sau.");
-        }
-    }
-
-    /// <summary>
-    /// Lấy thông tin người dùng theo ID
-    /// </summary>
-    /// <param name="id">ID người dùng</param>
-    /// <returns>Thông tin người dùng</returns>
-    [HttpGet("{id}")]
-    public async Task<ActionResult<UserResponseDto>> GetUserById(int id)
-    {
-        try
-        {
-            var user = await _context.Users
-                .Include(u => u.RoleNavigation)
-                .FirstOrDefaultAsync(u => u.UserId == id);
-
-            if (user == null)
-            {
-                return NotFound("Không tìm thấy người dùng");
+                _logger.LogError(ex, "Error during user login");
+                return StatusCode(500, new { message = "Đã xảy ra lỗi trong quá trình đăng nhập" });
             }
+        }
 
-            var userResponse = new UserResponseDto
+                 /// <summary>
+         /// Đăng xuất (chỉ trả về thông báo vì JWT là stateless)
+         /// </summary>
+         [HttpPost("logout")]
+         [Authorize]
+         public IActionResult Logout()
+         {
+             try
+             {
+                 var username = User.FindFirst(ClaimTypes.Name)?.Value ?? 
+                              User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                 _logger.LogInformation($"User {username} logged out");
+                 return Ok(new { message = "Đăng xuất thành công" });
+             }
+             catch (Exception ex)
+             {
+                 _logger.LogError(ex, "Error during logout");
+                 return StatusCode(500, new { message = "Đã xảy ra lỗi trong quá trình đăng xuất" });
+             }
+         }
+
+        /// <summary>
+        /// Lấy thông tin profile của user hiện tại
+        /// </summary>
+        [HttpGet("profile")]
+        [Authorize]
+        public async Task<IActionResult> GetProfile()
+        {
+            try
             {
-                UserId = user.UserId,
-                Username = user.Username,
-                Email = user.Email,
-                PhoneNumber = user.PhoneNumber,
-                Role = user.Role,
-                RoleName = user.RoleNavigation.Name,
-                CreatedAt = user.CreatedAt
-            };
+                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (!int.TryParse(userIdClaim, out int userId))
+                {
+                    return Unauthorized(new { message = "Token không hợp lệ" });
+                }
 
-            return Ok(userResponse);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Lỗi khi lấy thông tin người dùng ID: {UserId}", id);
-            return StatusCode(500, "Có lỗi xảy ra khi lấy thông tin người dùng.");
-        }
-    }
+                var user = await _context.Users.FindAsync(userId);
+                if (user == null)
+                {
+                    return NotFound(new { message = "Không tìm thấy người dùng" });
+                }
 
-    /// <summary>
-    /// Mã hóa mật khẩu sử dụng SHA256
-    /// </summary>
-    /// <param name="password">Mật khẩu gốc</param>
-    /// <returns>Mật khẩu đã được mã hóa</returns>
-    private string HashPassword(string password)
-    {
-        using (var sha256 = SHA256.Create())
-        {
-            // Chuyển mật khẩu thành byte array
-            var hashedBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(password));
-            
-            // Chuyển thành chuỗi hex
-            return Convert.ToHexString(hashedBytes);
-        }
-    }
+                var response = new UserResponseDto
+                {
+                    UserId = user.UserId,
+                    Username = user.Username,
+                    Email = user.Email,
+                    PhoneNumber = user.PhoneNumber,
+                    Role = user.Role,
+                    CreatedAt = user.CreatedAt
+                };
 
-    /// <summary>
-    /// Đăng xuất khỏi hệ thống (invalidate token)
-    /// </summary>
-    /// <returns>Thông báo đăng xuất thành công</returns>
-    [HttpPost("logout")]
-    [Authorize]
-    public async Task<IActionResult> Logout()
-    {
-        try
-        {
-            // Lấy thông tin người dùng từ token
-            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
-            var username = User.FindFirst(ClaimTypes.Name)?.Value;
-
-            if (userIdClaim != null)
-            {
-                _logger.LogInformation("Người dùng đăng xuất: {Username}", username);
-                
-                // TODO: Trong tương lai có thể implement token blacklist để invalidate token
-                // Hiện tại chỉ log việc đăng xuất
-                
-                return Ok(new { message = "Đăng xuất thành công" });
+                return Ok(response);
             }
-
-            return BadRequest("Token không hợp lệ");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Lỗi khi đăng xuất");
-            return StatusCode(500, "Có lỗi xảy ra khi đăng xuất");
-        }
-    }
-
-    /// <summary>
-    /// Lấy thông tin profile của người dùng hiện tại
-    /// </summary>
-    /// <returns>Thông tin profile</returns>
-    [HttpGet("profile")]
-    [Authorize]
-    public async Task<ActionResult<UserResponseDto>> GetProfile()
-    {
-        try
-        {
-            // Lấy User ID từ JWT token
-            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
-            if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out int userId))
+            catch (Exception ex)
             {
-                return Unauthorized("Token không hợp lệ");
+                _logger.LogError(ex, "Error getting user profile");
+                return StatusCode(500, new { message = "Đã xảy ra lỗi khi lấy thông tin người dùng" });
             }
-
-            var user = await _context.Users
-                .Include(u => u.RoleNavigation)
-                .FirstOrDefaultAsync(u => u.UserId == userId);
-
-            if (user == null)
-            {
-                return NotFound("Không tìm thấy thông tin người dùng");
-            }
-
-            var userResponse = new UserResponseDto
-            {
-                UserId = user.UserId,
-                Username = user.Username,
-                Email = user.Email,
-                PhoneNumber = user.PhoneNumber,
-                Role = user.Role,
-                RoleName = user.RoleNavigation.Name,
-                CreatedAt = user.CreatedAt
-            };
-
-            return Ok(userResponse);
         }
-        catch (Exception ex)
+
+        /// <summary>
+        /// Lấy thông tin profile theo ID (chỉ dành cho admin)
+        /// </summary>
+        [HttpGet("profile/{id}")]
+        [AuthorizeRole(1)] // Chỉ Administrator (Role = 1)
+        public async Task<IActionResult> GetProfile(int id)
         {
-            _logger.LogError(ex, "Lỗi khi lấy thông tin profile");
-            return StatusCode(500, "Có lỗi xảy ra khi lấy thông tin profile");
-        }
-    }
-
-    /// <summary>
-    /// Refresh JWT token
-    /// </summary>
-    /// <returns>Token mới</returns>
-    [HttpPost("refresh-token")]
-    [Authorize]
-    public async Task<ActionResult<UserResponseDto>> RefreshToken()
-    {
-        try
-        {
-            // Lấy User ID từ JWT token hiện tại
-            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
-            if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out int userId))
+            try
             {
-                return Unauthorized("Token không hợp lệ");
+                var user = await _context.Users.FindAsync(id);
+                if (user == null)
+                {
+                    return NotFound(new { message = "Không tìm thấy người dùng" });
+                }
+
+                var response = new UserResponseDto
+                {
+                    UserId = user.UserId,
+                    Username = user.Username,
+                    Email = user.Email,
+                    PhoneNumber = user.PhoneNumber,
+                    Role = user.Role,
+                    CreatedAt = user.CreatedAt
+                };
+
+                return Ok(response);
             }
-
-            var user = await _context.Users
-                .Include(u => u.RoleNavigation)
-                .FirstOrDefaultAsync(u => u.UserId == userId);
-
-            if (user == null)
+            catch (Exception ex)
             {
-                return NotFound("Không tìm thấy người dùng");
+                _logger.LogError(ex, "Error getting user profile by ID");
+                return StatusCode(500, new { message = "Đã xảy ra lỗi khi lấy thông tin người dùng" });
             }
-
-            // Tạo token mới
-            var newToken = _jwtService.GenerateToken(user, user.RoleNavigation.Name);
-
-            _logger.LogInformation("Token được refresh cho người dùng: {Username}", user.Username);
-
-            var userResponse = new UserResponseDto
-            {
-                UserId = user.UserId,
-                Username = user.Username,
-                Email = user.Email,
-                PhoneNumber = user.PhoneNumber,
-                Role = user.Role,
-                RoleName = user.RoleNavigation.Name,
-                CreatedAt = user.CreatedAt,
-                Token = newToken
-            };
-
-            return Ok(userResponse);
         }
-        catch (Exception ex)
+
+                 /// <summary>
+         /// Kiểm tra token có hợp lệ không
+         /// </summary>
+         [HttpGet("validate-token")]
+         [Authorize]
+         public IActionResult ValidateToken()
+         {
+             try
+             {
+                 var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                 var username = User.FindFirst(ClaimTypes.Name)?.Value;
+                 var role = User.FindFirst("Role")?.Value;
+                 var roleName = User.FindFirst("RoleName")?.Value;
+                 
+                 return Ok(new 
+                 { 
+                     valid = true,
+                     userId = userId,
+                     username = username,
+                     role = role,
+                     roleName = roleName,
+                     message = "Token hợp lệ" 
+                 });
+             }
+             catch (Exception ex)
+             {
+                 _logger.LogError(ex, "Error validating token");
+                 return StatusCode(500, new { message = "Đã xảy ra lỗi khi kiểm tra token" });
+             }
+         }
+
+         /// <summary>
+         /// Lấy danh sách tất cả users (chỉ dành cho admin)
+         /// </summary>
+         [HttpGet("list")]
+         [AuthorizeRole(1)] // Chỉ Administrator
+         public async Task<IActionResult> GetAllUsers([FromQuery] int page = 1, [FromQuery] int limit = 10)
+         {
+             try
+             {
+                 var skip = (page - 1) * limit;
+                 var users = await _context.Users
+                     .OrderByDescending(u => u.CreatedAt)
+                     .Skip(skip)
+                     .Take(limit)
+                     .Select(u => new UserResponseDto
+                     {
+                         UserId = u.UserId,
+                         Username = u.Username,
+                         Email = u.Email,
+                         PhoneNumber = u.PhoneNumber,
+                         Role = u.Role,
+                         CreatedAt = u.CreatedAt
+                     })
+                     .ToListAsync();
+
+                 var totalUsers = await _context.Users.CountAsync();
+
+                 return Ok(new
+                 {
+                     users = users,
+                     pagination = new
+                     {
+                         page = page,
+                         limit = limit,
+                         total = totalUsers,
+                         totalPages = (int)Math.Ceiling((double)totalUsers / limit)
+                     }
+                 });
+             }
+             catch (Exception ex)
+             {
+                 _logger.LogError(ex, "Error getting users list");
+                 return StatusCode(500, new { message = "Đã xảy ra lỗi khi lấy danh sách người dùng" });
+             }
+         }
+
+         /// <summary>
+         /// Cập nhật role của user (chỉ dành cho admin)
+         /// </summary>
+                   [HttpPut("update-role/{userId}")]
+         [AuthorizeRole(1)] // Chỉ Administrator
+         public async Task<IActionResult> UpdateUserRole(int userId, [FromBody] int newRole)
+         {
+             try
+             {
+                 if (newRole < 0 || newRole > 2)
+                 {
+                     return BadRequest(new { message = "Role phải là 0 (Customer), 1 (Doctor), hoặc 2 (Admin)" });
+                 }
+
+                 var user = await _context.Users.FindAsync(userId);
+                 if (user == null)
+                 {
+                     return NotFound(new { message = "Không tìm thấy người dùng" });
+                 }
+
+                 user.Role = newRole;
+                 await _context.SaveChangesAsync();
+
+                 _logger.LogInformation($"Admin updated role of user {user.Username} to {newRole}");
+                 return Ok(new { message = "Cập nhật role thành công", newRole = newRole });
+             }
+             catch (Exception ex)
+             {
+                 _logger.LogError(ex, "Error updating user role");
+                 return StatusCode(500, new { message = "Đã xảy ra lỗi khi cập nhật role" });
+             }
+         }
+
+        #region Private Methods
+
+        /// <summary>
+        /// Mã hóa mật khẩu bằng SHA256
+        /// </summary>
+        private string HashPassword(string password)
         {
-            _logger.LogError(ex, "Lỗi khi refresh token");
-            return StatusCode(500, "Có lỗi xảy ra khi refresh token");
+            using (var sha256 = SHA256.Create())
+            {
+                var hashedBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(password));
+                return Convert.ToBase64String(hashedBytes);
+            }
         }
-    }
 
-    /// <summary>
-    /// Xác minh mật khẩu
-    /// </summary>
-    /// <param name="password">Mật khẩu người dùng nhập vào</param>
-    /// <param name="hashedPassword">Mật khẩu đã mã hóa trong database</param>
-    /// <returns>True nếu mật khẩu khớp</returns>
-    private bool VerifyPassword(string password, string hashedPassword)
-    {
-        // Mã hóa mật khẩu người dùng nhập vào
-        var hashedInputPassword = HashPassword(password);
-        
-        // So sánh với mật khẩu trong database
-        return hashedInputPassword.Equals(hashedPassword, StringComparison.OrdinalIgnoreCase);
+        /// <summary>
+        /// Xác minh mật khẩu
+        /// </summary>
+        private bool VerifyPassword(string password, string hashedPassword)
+        {
+            var hashOfInput = HashPassword(password);
+            return hashOfInput == hashedPassword;
+        }
+
+        #endregion
     }
 } 

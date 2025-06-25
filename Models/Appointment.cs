@@ -7,11 +7,9 @@ public partial class Appointment
 {
     public int AppointmentId { get; set; }
 
-    public int CustomerId { get; set; }
-
     public int PetId { get; set; }
 
-    public int DoctorId { get; set; }
+    public int? DoctorId { get; set; }
 
     public int ServiceId { get; set; }
 
@@ -31,9 +29,7 @@ public partial class Appointment
 
     public DateTime? CreatedAt { get; set; }
 
-    public virtual Customer Customer { get; set; } = null!;
-
-    public virtual Doctor Doctor { get; set; } = null!;
+    public virtual Doctor? Doctor { get; set; }
 
     public virtual ICollection<Feedback> Feedbacks { get; set; } = new List<Feedback>();
 

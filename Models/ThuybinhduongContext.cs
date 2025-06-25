@@ -23,33 +23,25 @@ public partial class ThuybinhduongContext : DbContext
 
     public virtual DbSet<Feedback> Feedbacks { get; set; }
 
+    public virtual DbSet<MedicalHistory> MedicalHistories { get; set; }
+
     public virtual DbSet<News> News { get; set; }
 
     public virtual DbSet<Pet> Pets { get; set; }
 
-    public virtual DbSet<Role> Roles { get; set; }
-
     public virtual DbSet<Service> Services { get; set; }
-
-    public virtual DbSet<ServiceCategory> ServiceCategories { get; set; }
 
     public virtual DbSet<User> Users { get; set; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-    {
-        // Connection string is now configured in Program.cs through dependency injection
-        if (!optionsBuilder.IsConfigured)
-        {
-            // This is only used when context is created outside of DI container (like in migrations)
-            optionsBuilder.UseSqlServer("Server=.;Database=THUYBINHDUONG;Trusted_Connection=True;Encrypt=False;");
-        }
-    }
+#warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see https://go.microsoft.com/fwlink/?LinkId=723263.
+        => optionsBuilder.UseSqlServer("Server=.;Database=THUYBINHDUONG;Trusted_Connection=True;Encrypt=False;");
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Appointment>(entity =>
         {
-            entity.HasKey(e => e.AppointmentId).HasName("PK__Appointm__A50828FC8984670A");
+            entity.HasKey(e => e.AppointmentId).HasName("PK__Appointm__A50828FCA49815CE");
 
             entity.ToTable("Appointment");
 
@@ -63,7 +55,6 @@ public partial class ThuybinhduongContext : DbContext
                 .HasDefaultValueSql("(getdate())")
                 .HasColumnType("datetime")
                 .HasColumnName("created_at");
-            entity.Property(e => e.CustomerId).HasColumnName("customer_id");
             entity.Property(e => e.DoctorId).HasColumnName("doctor_id");
             entity.Property(e => e.IsNewPet)
                 .HasDefaultValue(false)
@@ -76,30 +67,24 @@ public partial class ThuybinhduongContext : DbContext
                 .HasColumnName("status");
             entity.Property(e => e.Weight).HasColumnName("weight");
 
-            entity.HasOne(d => d.Customer).WithMany(p => p.Appointments)
-                .HasForeignKey(d => d.CustomerId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("FK__Appointme__custo__339FAB6E");
-
             entity.HasOne(d => d.Doctor).WithMany(p => p.Appointments)
                 .HasForeignKey(d => d.DoctorId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("FK__Appointme__docto__3587F3E0");
+                .HasConstraintName("FK__Appointme__docto__0F2D40CE");
 
             entity.HasOne(d => d.Pet).WithMany(p => p.Appointments)
                 .HasForeignKey(d => d.PetId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("FK__Appointme__pet_i__3493CFA7");
+                .HasConstraintName("FK__Appointme__pet_i__0E391C95");
 
             entity.HasOne(d => d.Service).WithMany(p => p.Appointments)
                 .HasForeignKey(d => d.ServiceId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("FK__Appointme__servi__367C1819");
+                .HasConstraintName("FK__Appointme__servi__10216507");
         });
 
         modelBuilder.Entity<Customer>(entity =>
         {
-            entity.HasKey(e => e.CustomerId).HasName("PK__Customer__CD65CB85266225EF");
+            entity.HasKey(e => e.CustomerId).HasName("PK__Customer__CD65CB85A1A9C5D0");
 
             entity.ToTable("Customer");
 
@@ -116,12 +101,12 @@ public partial class ThuybinhduongContext : DbContext
             entity.HasOne(d => d.User).WithMany(p => p.Customers)
                 .HasForeignKey(d => d.UserId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("FK__Customer__user_i__1F98B2C1");
+                .HasConstraintName("FK__Customer__user_i__7A3223E8");
         });
 
         modelBuilder.Entity<Doctor>(entity =>
         {
-            entity.HasKey(e => e.DoctorId).HasName("PK__Doctor__F3993564E67C1AE1");
+            entity.HasKey(e => e.DoctorId).HasName("PK__Doctor__F3993564452C83EF");
 
             entity.ToTable("Doctor");
 
@@ -140,7 +125,7 @@ public partial class ThuybinhduongContext : DbContext
 
         modelBuilder.Entity<Feedback>(entity =>
         {
-            entity.HasKey(e => e.FeedbackId).HasName("PK__Feedback__7A6B2B8CFD6635CB");
+            entity.HasKey(e => e.FeedbackId).HasName("PK__Feedback__7A6B2B8C381180EE");
 
             entity.ToTable("Feedback");
 
@@ -156,12 +141,34 @@ public partial class ThuybinhduongContext : DbContext
             entity.HasOne(d => d.Appointment).WithMany(p => p.Feedbacks)
                 .HasForeignKey(d => d.AppointmentId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("FK__Feedback__appoin__3A4CA8FD");
+                .HasConstraintName("FK__Feedback__appoin__13F1F5EB");
+        });
+
+        modelBuilder.Entity<MedicalHistory>(entity =>
+        {
+            entity.HasKey(e => e.HistoryId).HasName("PK__MedicalH__096AA2E91D026188");
+
+            entity.ToTable("MedicalHistory");
+
+            entity.Property(e => e.HistoryId).HasColumnName("history_id");
+            entity.Property(e => e.Description).HasColumnName("description");
+            entity.Property(e => e.Notes).HasColumnName("notes");
+            entity.Property(e => e.PetId).HasColumnName("pet_id");
+            entity.Property(e => e.RecordDate)
+                .HasDefaultValueSql("(getdate())")
+                .HasColumnType("datetime")
+                .HasColumnName("record_date");
+            entity.Property(e => e.Treatment).HasColumnName("treatment");
+
+            entity.HasOne(d => d.Pet).WithMany(p => p.MedicalHistories)
+                .HasForeignKey(d => d.PetId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK__MedicalHi__pet_i__0880433F");
         });
 
         modelBuilder.Entity<News>(entity =>
         {
-            entity.HasKey(e => e.NewsId).HasName("PK__News__4C27CCD80818EB58");
+            entity.HasKey(e => e.NewsId).HasName("PK__News__4C27CCD8504A6E03");
 
             entity.Property(e => e.NewsId).HasColumnName("news_id");
             entity.Property(e => e.Content).HasColumnName("content");
@@ -182,7 +189,7 @@ public partial class ThuybinhduongContext : DbContext
 
         modelBuilder.Entity<Pet>(entity =>
         {
-            entity.HasKey(e => e.PetId).HasName("PK__Pet__390CC5FEE6ABF663");
+            entity.HasKey(e => e.PetId).HasName("PK__Pet__390CC5FEE84C1112");
 
             entity.ToTable("Pet");
 
@@ -195,10 +202,6 @@ public partial class ThuybinhduongContext : DbContext
             entity.Property(e => e.ImageUrl)
                 .HasMaxLength(500)
                 .HasColumnName("image_url");
-            entity.Property(e => e.IsVaccinated)
-                .HasDefaultValue(false)
-                .HasColumnName("is_vaccinated");
-            entity.Property(e => e.MedicalHistory).HasColumnName("medical_history");
             entity.Property(e => e.Name)
                 .HasMaxLength(255)
                 .HasColumnName("name");
@@ -209,31 +212,19 @@ public partial class ThuybinhduongContext : DbContext
             entity.HasOne(d => d.Customer).WithMany(p => p.Pets)
                 .HasForeignKey(d => d.CustomerId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("FK__Pet__customer_id__25518C17");
-        });
-
-        modelBuilder.Entity<Role>(entity =>
-        {
-            entity.HasKey(e => e.RoleId).HasName("PK__Role__760965CCF1E96F23");
-
-            entity.ToTable("Role");
-
-            entity.HasIndex(e => e.Name, "UQ__Role__72E12F1B4C9E278A").IsUnique();
-
-            entity.Property(e => e.RoleId).HasColumnName("role_id");
-            entity.Property(e => e.Name)
-                .HasMaxLength(100)
-                .HasColumnName("name");
+                .HasConstraintName("FK__Pet__customer_id__04AFB25B");
         });
 
         modelBuilder.Entity<Service>(entity =>
         {
-            entity.HasKey(e => e.ServiceId).HasName("PK__Service__3E0DB8AF72791AA0");
+            entity.HasKey(e => e.ServiceId).HasName("PK__Service__3E0DB8AFDCCE589C");
 
             entity.ToTable("Service");
 
             entity.Property(e => e.ServiceId).HasColumnName("service_id");
-            entity.Property(e => e.CategoryId).HasColumnName("category_id");
+            entity.Property(e => e.Category)
+                .HasMaxLength(100)
+                .HasColumnName("category");
             entity.Property(e => e.Description).HasColumnName("description");
             entity.Property(e => e.Duration).HasColumnName("duration");
             entity.Property(e => e.IsActive)
@@ -245,33 +236,15 @@ public partial class ThuybinhduongContext : DbContext
             entity.Property(e => e.Price)
                 .HasColumnType("decimal(10, 2)")
                 .HasColumnName("price");
-
-            entity.HasOne(d => d.Category).WithMany(p => p.Services)
-                .HasForeignKey(d => d.CategoryId)
-                .HasConstraintName("FK__Service__categor__2B0A656D");
-        });
-
-        modelBuilder.Entity<ServiceCategory>(entity =>
-        {
-            entity.HasKey(e => e.CategoryId).HasName("PK__ServiceC__D54EE9B4327A898B");
-
-            entity.ToTable("ServiceCategory");
-
-            entity.Property(e => e.CategoryId).HasColumnName("category_id");
-            entity.Property(e => e.Name)
-                .HasMaxLength(100)
-                .HasColumnName("name");
         });
 
         modelBuilder.Entity<User>(entity =>
         {
-            entity.HasKey(e => e.UserId).HasName("PK__Users__B9BE370F3EF05F98");
+            entity.HasKey(e => e.UserId).HasName("PK__Users__B9BE370FC3807BC2");
 
-            entity.HasIndex(e => e.PhoneNumber, "UQ__Users__A1936A6B6264177F").IsUnique();
+            entity.HasIndex(e => e.Email, "UQ__Users__AB6E6164EDA8E1DE").IsUnique();
 
-            entity.HasIndex(e => e.Email, "UQ__Users__AB6E6164D52C4559").IsUnique();
-
-            entity.HasIndex(e => e.Username, "UQ__Users__F3DBC57281A6E2FF").IsUnique();
+            entity.HasIndex(e => e.Username, "UQ__Users__F3DBC572C4B45407").IsUnique();
 
             entity.Property(e => e.UserId).HasColumnName("user_id");
             entity.Property(e => e.CreatedAt)
@@ -291,11 +264,6 @@ public partial class ThuybinhduongContext : DbContext
             entity.Property(e => e.Username)
                 .HasMaxLength(255)
                 .HasColumnName("username");
-
-            entity.HasOne(d => d.RoleNavigation).WithMany(p => p.Users)
-                .HasForeignKey(d => d.Role)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("FK__Users__role__1CBC4616");
         });
 
         OnModelCreatingPartial(modelBuilder);

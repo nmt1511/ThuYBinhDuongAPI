@@ -11,7 +11,7 @@ public partial class User
 
     public string Password { get; set; } = null!;
 
-    public string Email { get; set; } = null!;
+    public string? Email { get; set; }
 
     public string? PhoneNumber { get; set; }
 
@@ -20,6 +20,4 @@ public partial class User
     public DateTime? CreatedAt { get; set; }
 
     public virtual ICollection<Customer> Customers { get; set; } = new List<Customer>();
-
-    public virtual Role RoleNavigation { get; set; } = null!;
 }

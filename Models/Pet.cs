@@ -17,13 +17,11 @@ public partial class Pet
 
     public DateOnly? BirthDate { get; set; }
 
-    public bool? IsVaccinated { get; set; }
-
-    public string? MedicalHistory { get; set; }
-
     public string? ImageUrl { get; set; }
 
     public virtual ICollection<Appointment> Appointments { get; set; } = new List<Appointment>();
 
     public virtual Customer Customer { get; set; } = null!;
+
+    public virtual ICollection<MedicalHistory> MedicalHistories { get; set; } = new List<MedicalHistory>();
 }

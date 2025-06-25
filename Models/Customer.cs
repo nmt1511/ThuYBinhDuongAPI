@@ -15,8 +15,6 @@ public partial class Customer
 
     public string? Address { get; set; }
 
-    public virtual ICollection<Appointment> Appointments { get; set; } = new List<Appointment>();
-
     public virtual ICollection<Pet> Pets { get; set; } = new List<Pet>();
 
     public virtual User User { get; set; } = null!;
