@@ -323,5 +323,337 @@ namespace ThuYBinhDuongAPI.Controllers
             
             return age;
         }
+
+        #region Admin Methods
+
+        /// <summary>
+        /// Lấy danh sách tất cả thú cưng (dành cho admin)
+        /// </summary>
+        [HttpGet("admin")]
+        [AuthorizeRole(1)] // Chỉ admin
+        public async Task<ActionResult<IEnumerable<PetResponseDto>>> GetAllPets([FromQuery] int page = 1, [FromQuery] int limit = 10, [FromQuery] int? customerId = null)
+        {
+            try
+            {
+                var skip = (page - 1) * limit;
+                var query = _context.Pets
+                    .Include(p => p.Customer)
+                    .AsQueryable();
+
+                // Filter by customer if specified
+                if (customerId.HasValue)
+                {
+                    query = query.Where(p => p.CustomerId == customerId.Value);
+                }
+
+                var pets = await query
+                    .Select(p => new PetResponseDto
+                    {
+                        PetId = p.PetId,
+                        CustomerId = p.CustomerId,
+                        Name = p.Name,
+                        Species = p.Species,
+                        Breed = p.Breed,
+                        BirthDate = p.BirthDate,
+                        ImageUrl = p.ImageUrl,
+                        Age = p.BirthDate.HasValue ? CalculateAge(p.BirthDate.Value) : null,
+                        CustomerName = p.Customer.CustomerName
+                    })
+                    .OrderBy(p => p.CustomerName)
+                    .ThenBy(p => p.Name)
+                    .Skip(skip)
+                    .Take(limit)
+                    .ToListAsync();
+
+                var totalPets = await query.CountAsync();
+
+                _logger.LogInformation($"Admin retrieved {pets.Count} pets (page {page})");
+                return Ok(new
+                {
+                    pets = pets,
+                    pagination = new
+                    {
+                        page = page,
+                        limit = limit,
+                        total = totalPets,
+                        totalPages = (int)Math.Ceiling((double)totalPets / limit)
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving all pets for admin");
+                return StatusCode(500, new { message = "Đã xảy ra lỗi khi lấy danh sách thú cưng" });
+            }
+        }
+
+        /// <summary>
+        /// Tìm kiếm thú cưng (dành cho admin)
+        /// </summary>
+        [HttpGet("admin/search")]
+        [AuthorizeRole(1)] // Chỉ admin
+        public async Task<ActionResult<IEnumerable<PetResponseDto>>> SearchPets([FromQuery] string query, [FromQuery] int page = 1, [FromQuery] int limit = 10)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(query))
+                {
+                    return BadRequest(new { message = "Từ khóa tìm kiếm không được để trống" });
+                }
+
+                var skip = (page - 1) * limit;
+                var searchQuery = query.ToLower().Trim();
+
+                var pets = await _context.Pets
+                    .Include(p => p.Customer)
+                    .Where(p => p.Name.ToLower().Contains(searchQuery) ||
+                               p.Species.ToLower().Contains(searchQuery) ||
+                               (p.Breed != null && p.Breed.ToLower().Contains(searchQuery)) ||
+                               p.Customer.CustomerName.ToLower().Contains(searchQuery))
+                    .Select(p => new PetResponseDto
+                    {
+                        PetId = p.PetId,
+                        CustomerId = p.CustomerId,
+                        Name = p.Name,
+                        Species = p.Species,
+                        Breed = p.Breed,
+                        BirthDate = p.BirthDate,
+                        ImageUrl = p.ImageUrl,
+                        Age = p.BirthDate.HasValue ? CalculateAge(p.BirthDate.Value) : null,
+                        CustomerName = p.Customer.CustomerName
+                    })
+                    .OrderBy(p => p.CustomerName)
+                    .ThenBy(p => p.Name)
+                    .Skip(skip)
+                    .Take(limit)
+                    .ToListAsync();
+
+                var totalResults = await _context.Pets
+                    .Include(p => p.Customer)
+                    .Where(p => p.Name.ToLower().Contains(searchQuery) ||
+                               p.Species.ToLower().Contains(searchQuery) ||
+                               (p.Breed != null && p.Breed.ToLower().Contains(searchQuery)) ||
+                               p.Customer.CustomerName.ToLower().Contains(searchQuery))
+                    .CountAsync();
+
+                _logger.LogInformation($"Admin searched pets with query '{query}', found {totalResults} results");
+                return Ok(new
+                {
+                    pets = pets,
+                    searchQuery = query,
+                    pagination = new
+                    {
+                        page = page,
+                        limit = limit,
+                        total = totalResults,
+                        totalPages = (int)Math.Ceiling((double)totalResults / limit)
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error searching pets for admin");
+                return StatusCode(500, new { message = "Đã xảy ra lỗi khi tìm kiếm thú cưng" });
+            }
+        }
+
+        /// <summary>
+        /// Lấy thông tin chi tiết thú cưng (dành cho admin)
+        /// </summary>
+        [HttpGet("admin/{id}")]
+        [AuthorizeRole(1)] // Chỉ admin
+        public async Task<ActionResult<PetResponseDto>> GetPetAdmin(int id)
+        {
+            try
+            {
+                var pet = await _context.Pets
+                    .Include(p => p.Customer)
+                    .Where(p => p.PetId == id)
+                    .Select(p => new PetResponseDto
+                    {
+                        PetId = p.PetId,
+                        CustomerId = p.CustomerId,
+                        Name = p.Name,
+                        Species = p.Species,
+                        Breed = p.Breed,
+                        BirthDate = p.BirthDate,
+                        ImageUrl = p.ImageUrl,
+                        Age = p.BirthDate.HasValue ? CalculateAge(p.BirthDate.Value) : null,
+                        CustomerName = p.Customer.CustomerName
+                    })
+                    .FirstOrDefaultAsync();
+
+                if (pet == null)
+                {
+                    return NotFound(new { message = "Không tìm thấy thú cưng" });
+                }
+
+                _logger.LogInformation($"Admin retrieved pet {id}");
+                return Ok(pet);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving pet {PetId} for admin", id);
+                return StatusCode(500, new { message = "Đã xảy ra lỗi khi lấy thông tin thú cưng" });
+            }
+        }
+
+        /// <summary>
+        /// Thêm thú cưng cho khách hàng (dành cho admin)
+        /// </summary>
+        [HttpPost("admin")]
+        [AuthorizeRole(1)] // Chỉ admin
+        public async Task<ActionResult<PetResponseDto>> CreatePetAdmin([FromBody] CreatePetDto createPetDto, [FromQuery] int customerId)
+        {
+            try
+            {
+                if (!ModelState.IsValid)
+                {
+                    return BadRequest(ModelState);
+                }
+
+                // Kiểm tra customer có tồn tại không
+                var customer = await _context.Customers.FindAsync(customerId);
+                if (customer == null)
+                {
+                    return BadRequest(new { message = "Khách hàng không tồn tại" });
+                }
+
+                // Kiểm tra tên thú cưng đã tồn tại cho khách hàng này chưa
+                var existingPet = await _context.Pets
+                    .AnyAsync(p => p.CustomerId == customerId && p.Name == createPetDto.Name);
+
+                if (existingPet)
+                {
+                    return BadRequest(new { message = "Khách hàng này đã có thú cưng với tên này" });
+                }
+
+                var pet = new Pet
+                {
+                    CustomerId = customerId,
+                    Name = createPetDto.Name,
+                    Species = createPetDto.Species,
+                    Breed = createPetDto.Breed,
+                    BirthDate = createPetDto.BirthDate,
+                    ImageUrl = createPetDto.ImageUrl
+                };
+
+                _context.Pets.Add(pet);
+                await _context.SaveChangesAsync();
+
+                // Load thông tin customer để trả về
+                await _context.Entry(pet)
+                    .Reference(p => p.Customer)
+                    .LoadAsync();
+
+                var response = new PetResponseDto
+                {
+                    PetId = pet.PetId,
+                    CustomerId = pet.CustomerId,
+                    Name = pet.Name,
+                    Species = pet.Species,
+                    Breed = pet.Breed,
+                    BirthDate = pet.BirthDate,
+                    ImageUrl = pet.ImageUrl,
+                    Age = pet.BirthDate.HasValue ? CalculateAge(pet.BirthDate.Value) : null,
+                    CustomerName = pet.Customer.CustomerName
+                };
+
+                _logger.LogInformation($"Admin created pet {pet.PetId} - {pet.Name} for customer {customerId}");
+                return CreatedAtAction(nameof(GetPetAdmin), new { id = pet.PetId }, response);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating pet for admin");
+                return StatusCode(500, new { message = "Đã xảy ra lỗi khi thêm thú cưng" });
+            }
+        }
+
+        /// <summary>
+        /// Cập nhật thông tin thú cưng (dành cho admin)
+        /// </summary>
+        [HttpPut("admin/{id}")]
+        [AuthorizeRole(1)] // Chỉ admin
+        public async Task<IActionResult> UpdatePetAdmin(int id, [FromBody] UpdatePetDto updatePetDto)
+        {
+            try
+            {
+                if (!ModelState.IsValid)
+                {
+                    return BadRequest(ModelState);
+                }
+
+                var pet = await _context.Pets.FindAsync(id);
+                if (pet == null)
+                {
+                    return NotFound(new { message = "Không tìm thấy thú cưng" });
+                }
+
+                // Kiểm tra tên thú cưng đã tồn tại cho khách hàng này chưa (trừ thú cưng hiện tại)
+                var existingPet = await _context.Pets
+                    .AnyAsync(p => p.CustomerId == pet.CustomerId && p.Name == updatePetDto.Name && p.PetId != id);
+
+                if (existingPet)
+                {
+                    return BadRequest(new { message = "Khách hàng này đã có thú cưng khác với tên này" });
+                }
+
+                // Cập nhật thông tin
+                pet.Name = updatePetDto.Name;
+                pet.Species = updatePetDto.Species;
+                pet.Breed = updatePetDto.Breed;
+                pet.BirthDate = updatePetDto.BirthDate;
+                pet.ImageUrl = updatePetDto.ImageUrl;
+
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation($"Admin updated pet {id}");
+                return Ok(new { message = "Cập nhật thông tin thú cưng thành công" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating pet {PetId} for admin", id);
+                return StatusCode(500, new { message = "Đã xảy ra lỗi khi cập nhật thông tin thú cưng" });
+            }
+        }
+
+        /// <summary>
+        /// Xóa thú cưng (dành cho admin)
+        /// </summary>
+        [HttpDelete("admin/{id}")]
+        [AuthorizeRole(1)] // Chỉ admin
+        public async Task<IActionResult> DeletePetAdmin(int id)
+        {
+            try
+            {
+                var pet = await _context.Pets.FindAsync(id);
+                if (pet == null)
+                {
+                    return NotFound(new { message = "Không tìm thấy thú cưng" });
+                }
+
+                // Kiểm tra xem thú cưng có lịch hẹn nào chưa hoàn thành không
+                var hasActiveAppointments = await _context.Appointments
+                    .AnyAsync(a => a.PetId == id && (a.Status == 0 || a.Status == 1)); // Chờ xác nhận hoặc đã xác nhận
+
+                if (hasActiveAppointments)
+                {
+                    return BadRequest(new { message = "Không thể xóa thú cưng có lịch hẹn đang hoạt động" });
+                }
+
+                _context.Pets.Remove(pet);
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation($"Admin deleted pet {id} - {pet.Name}");
+                return Ok(new { message = "Xóa thú cưng thành công" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting pet {PetId} for admin", id);
+                return StatusCode(500, new { message = "Đã xảy ra lỗi khi xóa thú cưng" });
+            }
+        }
+
+        #endregion
     }
 } 

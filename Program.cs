@@ -7,6 +7,9 @@ using ThuYBinhDuongAPI.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Thêm cấu hình từ appsettings.Local.json nếu tồn tại
+builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true);
+
 // Thêm các services vào container
 builder.Services.AddControllers();
 

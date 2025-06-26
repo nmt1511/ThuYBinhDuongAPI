@@ -353,5 +353,506 @@ namespace ThuYBinhDuongAPI.Controllers
                 _ => "Không xác định"
             };
         }
+
+        #region Admin Methods
+
+        /// <summary>
+        /// Lấy tất cả lịch hẹn (dành cho admin)
+        /// </summary>
+        [HttpGet("admin")]
+        [AuthorizeRole(1)] // Chỉ admin
+        public async Task<ActionResult<IEnumerable<AppointmentResponseDto>>> GetAllAppointments([FromQuery] int page = 1, [FromQuery] int limit = 10, [FromQuery] int? status = null, [FromQuery] string? date = null)
+        {
+            try
+            {
+                var skip = (page - 1) * limit;
+                var query = _context.Appointments
+                    .Include(a => a.Pet)
+                        .ThenInclude(p => p.Customer)
+                    .Include(a => a.Doctor)
+                    .Include(a => a.Service)
+                    .AsQueryable();
+
+                // Filter by status if specified
+                if (status.HasValue)
+                {
+                    query = query.Where(a => a.Status == status.Value);
+                }
+
+                // Filter by date if specified
+                if (!string.IsNullOrWhiteSpace(date) && DateOnly.TryParse(date, out var filterDate))
+                {
+                    query = query.Where(a => a.AppointmentDate == filterDate);
+                }
+
+                var appointments = await query
+                    .Select(a => new AppointmentResponseDto
+                    {
+                        AppointmentId = a.AppointmentId,
+                        PetId = a.PetId,
+                        DoctorId = a.DoctorId,
+                        ServiceId = a.ServiceId,
+                        AppointmentDate = a.AppointmentDate,
+                        AppointmentTime = a.AppointmentTime,
+                        Weight = a.Weight,
+                        Age = a.Age,
+                        IsNewPet = a.IsNewPet,
+                        Status = a.Status,
+                        Notes = a.Notes,
+                        CreatedAt = a.CreatedAt,
+                        PetName = a.Pet.Name,
+                        CustomerName = a.Pet.Customer.CustomerName,
+                        DoctorName = a.Doctor != null ? a.Doctor.FullName : null,
+                        ServiceName = a.Service.Name,
+                        ServiceDescription = a.Service.Description,
+                        StatusText = GetStatusText(a.Status),
+                        CanCancel = a.Status == 0 || a.Status == 1 // Admin có thể hủy nhiều trạng thái hơn
+                    })
+                    .OrderByDescending(a => a.CreatedAt)
+                    .Skip(skip)
+                    .Take(limit)
+                    .ToListAsync();
+
+                var totalAppointments = await query.CountAsync();
+
+                _logger.LogInformation($"Admin retrieved {appointments.Count} appointments (page {page})");
+                return Ok(new
+                {
+                    appointments = appointments,
+                    pagination = new
+                    {
+                        page = page,
+                        limit = limit,
+                        total = totalAppointments,
+                        totalPages = (int)Math.Ceiling((double)totalAppointments / limit)
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving all appointments for admin");
+                return StatusCode(500, new { message = "Đã xảy ra lỗi khi lấy danh sách lịch hẹn" });
+            }
+        }
+
+        /// <summary>
+        /// Tìm kiếm lịch hẹn (dành cho admin)
+        /// </summary>
+        [HttpGet("admin/search")]
+        [AuthorizeRole(1)] // Chỉ admin
+        public async Task<ActionResult<IEnumerable<AppointmentResponseDto>>> SearchAppointments([FromQuery] string query, [FromQuery] int page = 1, [FromQuery] int limit = 10)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(query))
+                {
+                    return BadRequest(new { message = "Từ khóa tìm kiếm không được để trống" });
+                }
+
+                var skip = (page - 1) * limit;
+                var searchQuery = query.ToLower().Trim();
+
+                var appointments = await _context.Appointments
+                    .Include(a => a.Pet)
+                        .ThenInclude(p => p.Customer)
+                    .Include(a => a.Doctor)
+                    .Include(a => a.Service)
+                    .Where(a => a.Pet.Name.ToLower().Contains(searchQuery) ||
+                               a.Pet.Customer.CustomerName.ToLower().Contains(searchQuery) ||
+                               a.Service.Name.ToLower().Contains(searchQuery) ||
+                               (a.Doctor != null && a.Doctor.FullName.ToLower().Contains(searchQuery)) ||
+                               (a.Notes != null && a.Notes.ToLower().Contains(searchQuery)))
+                    .Select(a => new AppointmentResponseDto
+                    {
+                        AppointmentId = a.AppointmentId,
+                        PetId = a.PetId,
+                        DoctorId = a.DoctorId,
+                        ServiceId = a.ServiceId,
+                        AppointmentDate = a.AppointmentDate,
+                        AppointmentTime = a.AppointmentTime,
+                        Weight = a.Weight,
+                        Age = a.Age,
+                        IsNewPet = a.IsNewPet,
+                        Status = a.Status,
+                        Notes = a.Notes,
+                        CreatedAt = a.CreatedAt,
+                        PetName = a.Pet.Name,
+                        CustomerName = a.Pet.Customer.CustomerName,
+                        DoctorName = a.Doctor != null ? a.Doctor.FullName : null,
+                        ServiceName = a.Service.Name,
+                        ServiceDescription = a.Service.Description,
+                        StatusText = GetStatusText(a.Status),
+                        CanCancel = a.Status == 0 || a.Status == 1
+                    })
+                    .OrderByDescending(a => a.CreatedAt)
+                    .Skip(skip)
+                    .Take(limit)
+                    .ToListAsync();
+
+                var totalResults = await _context.Appointments
+                    .Include(a => a.Pet)
+                        .ThenInclude(p => p.Customer)
+                    .Include(a => a.Doctor)
+                    .Include(a => a.Service)
+                    .Where(a => a.Pet.Name.ToLower().Contains(searchQuery) ||
+                               a.Pet.Customer.CustomerName.ToLower().Contains(searchQuery) ||
+                               a.Service.Name.ToLower().Contains(searchQuery) ||
+                               (a.Doctor != null && a.Doctor.FullName.ToLower().Contains(searchQuery)) ||
+                               (a.Notes != null && a.Notes.ToLower().Contains(searchQuery)))
+                    .CountAsync();
+
+                _logger.LogInformation($"Admin searched appointments with query '{query}', found {totalResults} results");
+                return Ok(new
+                {
+                    appointments = appointments,
+                    searchQuery = query,
+                    pagination = new
+                    {
+                        page = page,
+                        limit = limit,
+                        total = totalResults,
+                        totalPages = (int)Math.Ceiling((double)totalResults / limit)
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error searching appointments for admin");
+                return StatusCode(500, new { message = "Đã xảy ra lỗi khi tìm kiếm lịch hẹn" });
+            }
+        }
+
+        /// <summary>
+        /// Lấy chi tiết lịch hẹn (dành cho admin)
+        /// </summary>
+        [HttpGet("admin/{id}")]
+        [AuthorizeRole(1)] // Chỉ admin
+        public async Task<ActionResult<AppointmentResponseDto>> GetAppointmentAdmin(int id)
+        {
+            try
+            {
+                var appointment = await _context.Appointments
+                    .Include(a => a.Pet)
+                        .ThenInclude(p => p.Customer)
+                    .Include(a => a.Doctor)
+                    .Include(a => a.Service)
+                    .Where(a => a.AppointmentId == id)
+                    .Select(a => new AppointmentResponseDto
+                    {
+                        AppointmentId = a.AppointmentId,
+                        PetId = a.PetId,
+                        DoctorId = a.DoctorId,
+                        ServiceId = a.ServiceId,
+                        AppointmentDate = a.AppointmentDate,
+                        AppointmentTime = a.AppointmentTime,
+                        Weight = a.Weight,
+                        Age = a.Age,
+                        IsNewPet = a.IsNewPet,
+                        Status = a.Status,
+                        Notes = a.Notes,
+                        CreatedAt = a.CreatedAt,
+                        PetName = a.Pet.Name,
+                        CustomerName = a.Pet.Customer.CustomerName,
+                        DoctorName = a.Doctor != null ? a.Doctor.FullName : null,
+                        ServiceName = a.Service.Name,
+                        ServiceDescription = a.Service.Description,
+                        StatusText = GetStatusText(a.Status),
+                        CanCancel = a.Status == 0 || a.Status == 1
+                    })
+                    .FirstOrDefaultAsync();
+
+                if (appointment == null)
+                {
+                    return NotFound(new { message = "Không tìm thấy lịch hẹn" });
+                }
+
+                _logger.LogInformation($"Admin retrieved appointment {id}");
+                return Ok(appointment);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving appointment {AppointmentId} for admin", id);
+                return StatusCode(500, new { message = "Đã xảy ra lỗi khi lấy thông tin lịch hẹn" });
+            }
+        }
+
+        /// <summary>
+        /// Tạo lịch hẹn cho khách hàng (dành cho admin)
+        /// </summary>
+        [HttpPost("admin")]
+        [AuthorizeRole(1)] // Chỉ admin
+        public async Task<ActionResult<AppointmentResponseDto>> CreateAppointmentAdmin([FromBody] CreateAppointmentDto createDto)
+        {
+            try
+            {
+                if (!ModelState.IsValid)
+                {
+                    return BadRequest(ModelState);
+                }
+
+                // Kiểm tra thú cưng có tồn tại không
+                var pet = await _context.Pets
+                    .Include(p => p.Customer)
+                    .FirstOrDefaultAsync(p => p.PetId == createDto.PetId);
+
+                if (pet == null)
+                {
+                    return BadRequest(new { message = "Thú cưng không tồn tại" });
+                }
+
+                // Kiểm tra dịch vụ có tồn tại không
+                var service = await _context.Services.FindAsync(createDto.ServiceId);
+                if (service == null)
+                {
+                    return BadRequest(new { message = "Dịch vụ không tồn tại" });
+                }
+
+                // Kiểm tra bác sĩ (nếu có chỉ định)
+                if (createDto.DoctorId.HasValue)
+                {
+                    var doctor = await _context.Doctors.FindAsync(createDto.DoctorId.Value);
+                    if (doctor == null)
+                    {
+                        return BadRequest(new { message = "Bác sĩ không tồn tại" });
+                    }
+                }
+
+                // Kiểm tra ngày hẹn không được trong quá khứ
+                if (createDto.AppointmentDate < DateOnly.FromDateTime(DateTime.Today))
+                {
+                    return BadRequest(new { message = "Ngày hẹn không thể trong quá khứ" });
+                }
+
+                // Kiểm tra trùng lịch cho cùng thú cưng trong cùng ngày và giờ
+                var existingAppointment = await _context.Appointments
+                    .AnyAsync(a => a.PetId == createDto.PetId && 
+                                  a.AppointmentDate == createDto.AppointmentDate && 
+                                  a.AppointmentTime == createDto.AppointmentTime &&
+                                  (a.Status == 0 || a.Status == 1));
+
+                if (existingAppointment)
+                {
+                    return BadRequest(new { message = "Thú cưng đã có lịch hẹn vào thời gian này" });
+                }
+
+                var appointment = new Appointment
+                {
+                    PetId = createDto.PetId,
+                    ServiceId = createDto.ServiceId,
+                    DoctorId = createDto.DoctorId,
+                    AppointmentDate = createDto.AppointmentDate,
+                    AppointmentTime = createDto.AppointmentTime,
+                    Weight = createDto.Weight,
+                    Age = createDto.Age,
+                    IsNewPet = createDto.IsNewPet,
+                    Status = 1, // Admin tạo lịch sẽ để trạng thái "Đã xác nhận"
+                    Notes = createDto.Notes,
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                _context.Appointments.Add(appointment);
+                await _context.SaveChangesAsync();
+
+                // Load thông tin liên quan để trả về
+                await _context.Entry(appointment)
+                    .Reference(a => a.Pet)
+                    .LoadAsync();
+                await _context.Entry(appointment.Pet)
+                    .Reference(p => p.Customer)
+                    .LoadAsync();
+                await _context.Entry(appointment)
+                    .Reference(a => a.Service)
+                    .LoadAsync();
+                if (appointment.DoctorId.HasValue)
+                {
+                    await _context.Entry(appointment)
+                        .Reference(a => a.Doctor)
+                        .LoadAsync();
+                }
+
+                var response = new AppointmentResponseDto
+                {
+                    AppointmentId = appointment.AppointmentId,
+                    PetId = appointment.PetId,
+                    DoctorId = appointment.DoctorId,
+                    ServiceId = appointment.ServiceId,
+                    AppointmentDate = appointment.AppointmentDate,
+                    AppointmentTime = appointment.AppointmentTime,
+                    Weight = appointment.Weight,
+                    Age = appointment.Age,
+                    IsNewPet = appointment.IsNewPet,
+                    Status = appointment.Status,
+                    Notes = appointment.Notes,
+                    CreatedAt = appointment.CreatedAt,
+                    PetName = appointment.Pet.Name,
+                    CustomerName = appointment.Pet.Customer.CustomerName,
+                    DoctorName = appointment.Doctor?.FullName,
+                    ServiceName = appointment.Service.Name,
+                    ServiceDescription = appointment.Service.Description,
+                    StatusText = GetStatusText(appointment.Status),
+                    CanCancel = appointment.Status == 0 || appointment.Status == 1
+                };
+
+                _logger.LogInformation($"Admin created appointment {appointment.AppointmentId} for pet {appointment.PetId}");
+                return CreatedAtAction(nameof(GetAppointmentAdmin), new { id = appointment.AppointmentId }, response);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating appointment for admin");
+                return StatusCode(500, new { message = "Đã xảy ra lỗi khi tạo lịch hẹn" });
+            }
+        }
+
+        /// <summary>
+        /// Cập nhật lịch hẹn (dành cho admin)
+        /// </summary>
+        [HttpPut("admin/{id}")]
+        [AuthorizeRole(1)] // Chỉ admin
+        public async Task<IActionResult> UpdateAppointmentAdmin(int id, [FromBody] CreateAppointmentDto updateDto)
+        {
+            try
+            {
+                if (!ModelState.IsValid)
+                {
+                    return BadRequest(ModelState);
+                }
+
+                var appointment = await _context.Appointments.FindAsync(id);
+                if (appointment == null)
+                {
+                    return NotFound(new { message = "Không tìm thấy lịch hẹn" });
+                }
+
+                // Kiểm tra thú cưng có tồn tại không
+                var pet = await _context.Pets.FindAsync(updateDto.PetId);
+                if (pet == null)
+                {
+                    return BadRequest(new { message = "Thú cưng không tồn tại" });
+                }
+
+                // Kiểm tra dịch vụ có tồn tại không
+                var service = await _context.Services.FindAsync(updateDto.ServiceId);
+                if (service == null)
+                {
+                    return BadRequest(new { message = "Dịch vụ không tồn tại" });
+                }
+
+                // Kiểm tra bác sĩ (nếu có chỉ định)
+                if (updateDto.DoctorId.HasValue)
+                {
+                    var doctor = await _context.Doctors.FindAsync(updateDto.DoctorId.Value);
+                    if (doctor == null)
+                    {
+                        return BadRequest(new { message = "Bác sĩ không tồn tại" });
+                    }
+                }
+
+                // Kiểm tra trùng lịch cho cùng thú cưng trong cùng ngày và giờ (trừ lịch hiện tại)
+                var existingAppointment = await _context.Appointments
+                    .AnyAsync(a => a.PetId == updateDto.PetId && 
+                                  a.AppointmentDate == updateDto.AppointmentDate && 
+                                  a.AppointmentTime == updateDto.AppointmentTime &&
+                                  a.AppointmentId != id &&
+                                  (a.Status == 0 || a.Status == 1));
+
+                if (existingAppointment)
+                {
+                    return BadRequest(new { message = "Thú cưng đã có lịch hẹn khác vào thời gian này" });
+                }
+
+                // Cập nhật thông tin
+                appointment.PetId = updateDto.PetId;
+                appointment.ServiceId = updateDto.ServiceId;
+                appointment.DoctorId = updateDto.DoctorId;
+                appointment.AppointmentDate = updateDto.AppointmentDate;
+                appointment.AppointmentTime = updateDto.AppointmentTime;
+                appointment.Weight = updateDto.Weight;
+                appointment.Age = updateDto.Age;
+                appointment.IsNewPet = updateDto.IsNewPet;
+                appointment.Notes = updateDto.Notes;
+
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation($"Admin updated appointment {id}");
+                return Ok(new { message = "Cập nhật lịch hẹn thành công" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating appointment {AppointmentId} for admin", id);
+                return StatusCode(500, new { message = "Đã xảy ra lỗi khi cập nhật lịch hẹn" });
+            }
+        }
+
+        /// <summary>
+        /// Cập nhật trạng thái lịch hẹn (dành cho admin)
+        /// </summary>
+        [HttpPatch("admin/{id}/status")]
+        [AuthorizeRole(1)] // Chỉ admin
+        public async Task<IActionResult> UpdateAppointmentStatus(int id, [FromBody] int newStatus)
+        {
+            try
+            {
+                if (newStatus < 0 || newStatus > 3)
+                {
+                    return BadRequest(new { message = "Trạng thái phải từ 0 (Chờ xác nhận) đến 3 (Đã hủy)" });
+                }
+
+                var appointment = await _context.Appointments.FindAsync(id);
+                if (appointment == null)
+                {
+                    return NotFound(new { message = "Không tìm thấy lịch hẹn" });
+                }
+
+                var oldStatus = appointment.Status;
+                appointment.Status = newStatus;
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation($"Admin updated appointment {id} status from {GetStatusText(oldStatus)} to {GetStatusText(newStatus)}");
+                return Ok(new { 
+                    message = "Cập nhật trạng thái lịch hẹn thành công",
+                    oldStatus = GetStatusText(oldStatus),
+                    newStatus = GetStatusText(newStatus)
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating appointment {AppointmentId} status for admin", id);
+                return StatusCode(500, new { message = "Đã xảy ra lỗi khi cập nhật trạng thái lịch hẹn" });
+            }
+        }
+
+        /// <summary>
+        /// Xóa lịch hẹn (dành cho admin)
+        /// </summary>
+        [HttpDelete("admin/{id}")]
+        [AuthorizeRole(1)] // Chỉ admin
+        public async Task<IActionResult> DeleteAppointmentAdmin(int id)
+        {
+            try
+            {
+                var appointment = await _context.Appointments
+                    .Include(a => a.Pet)
+                    .ThenInclude(p => p.Customer)
+                    .FirstOrDefaultAsync(a => a.AppointmentId == id);
+
+                if (appointment == null)
+                {
+                    return NotFound(new { message = "Không tìm thấy lịch hẹn" });
+                }
+
+                _context.Appointments.Remove(appointment);
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation($"Admin deleted appointment {id} for pet {appointment.Pet.Name} (customer: {appointment.Pet.Customer.CustomerName})");
+                return Ok(new { message = "Xóa lịch hẹn thành công" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting appointment {AppointmentId} for admin", id);
+                return StatusCode(500, new { message = "Đã xảy ra lỗi khi xóa lịch hẹn" });
+            }
+        }
+
+        #endregion
     }
 } 

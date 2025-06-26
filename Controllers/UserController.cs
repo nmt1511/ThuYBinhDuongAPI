@@ -296,27 +296,48 @@ namespace ThuYBinhDuongAPI.Controllers
          /// </summary>
          [HttpGet("list")]
          [AuthorizeRole(1)] // Chỉ Administrator
-         public async Task<IActionResult> GetAllUsers([FromQuery] int page = 1, [FromQuery] int limit = 10)
+         public async Task<IActionResult> GetAllUsers([FromQuery] int page = 1, [FromQuery] int limit = 10, [FromQuery] string? search = null)
          {
              try
              {
                  var skip = (page - 1) * limit;
-                 var users = await _context.Users
+                 var query = _context.Users
+                     .Include(u => u.Customers) // Include Customer data
+                     .AsQueryable();
+
+                 // Apply search filter if provided
+                 if (!string.IsNullOrWhiteSpace(search))
+                 {
+                     query = query.Where(u => 
+                         u.Username.Contains(search) ||
+                         u.Email.Contains(search) ||
+                         (u.PhoneNumber != null && u.PhoneNumber.Contains(search)) ||
+                         u.Customers.Any(c => c.CustomerName.Contains(search))
+                     );
+                 }
+
+                 var users = await query
                      .OrderByDescending(u => u.CreatedAt)
                      .Skip(skip)
                      .Take(limit)
-                     .Select(u => new UserResponseDto
+                     .Select(u => new 
                      {
                          UserId = u.UserId,
                          Username = u.Username,
                          Email = u.Email,
                          PhoneNumber = u.PhoneNumber,
                          Role = u.Role,
-                         CreatedAt = u.CreatedAt
+                         RoleName = u.Role == 0 ? "Customer" : u.Role == 1 ? "Administrator" : "Doctor",
+                         CreatedAt = u.CreatedAt,
+                         // Include Customer information if user is a customer
+                         CustomerName = u.Customers.FirstOrDefault() != null ? u.Customers.FirstOrDefault()!.CustomerName : null,
+                         Address = u.Customers.FirstOrDefault() != null ? u.Customers.FirstOrDefault()!.Address : null,
+                         Gender = u.Customers.FirstOrDefault() != null ? u.Customers.FirstOrDefault()!.Gender : null,
+                         CustomerId = u.Customers.FirstOrDefault() != null ? u.Customers.FirstOrDefault()!.CustomerId : (int?)null
                      })
                      .ToListAsync();
 
-                 var totalUsers = await _context.Users.CountAsync();
+                 var totalUsers = await query.CountAsync();
 
                  return Ok(new
                  {
@@ -348,7 +369,7 @@ namespace ThuYBinhDuongAPI.Controllers
              {
                  if (newRole < 0 || newRole > 2)
                  {
-                     return BadRequest(new { message = "Role phải là 0 (Customer), 1 (Doctor), hoặc 2 (Admin)" });
+                     return BadRequest(new { message = "Role phải là 0 (Customer), 1 (Administrator), hoặc 2 (Doctor/Other)" });
                  }
 
                  var user = await _context.Users.FindAsync(userId);
@@ -367,6 +388,162 @@ namespace ThuYBinhDuongAPI.Controllers
              {
                  _logger.LogError(ex, "Error updating user role");
                  return StatusCode(500, new { message = "Đã xảy ra lỗi khi cập nhật role" });
+             }
+         }
+
+                 /// <summary>
+         /// Cập nhật thông tin người dùng (Admin only)
+         /// </summary>
+         [HttpPut("update/{userId}")]
+         [AuthorizeRole(1)] // Chỉ Administrator
+         public async Task<IActionResult> UpdateUser(int userId, [FromBody] UpdateUserDto updateUserDto)
+         {
+             try
+             {
+                 var user = await _context.Users.Include(u => u.Customers).FirstOrDefaultAsync(u => u.UserId == userId);
+                 if (user == null)
+                 {
+                     return NotFound(new { message = "Không tìm thấy người dùng" });
+                 }
+
+                 // Update User fields
+                 if (!string.IsNullOrWhiteSpace(updateUserDto.Email))
+                     user.Email = updateUserDto.Email;
+                 
+                 if (!string.IsNullOrWhiteSpace(updateUserDto.PhoneNumber))
+                     user.PhoneNumber = updateUserDto.PhoneNumber;
+
+                 // Update Customer fields if user is a customer (role = 0)
+                 if (user.Role == 0 && user.Customers.Any())
+                 {
+                     var customer = user.Customers.First();
+                     
+                     if (!string.IsNullOrWhiteSpace(updateUserDto.CustomerName))
+                         customer.CustomerName = updateUserDto.CustomerName;
+                     
+                     if (!string.IsNullOrWhiteSpace(updateUserDto.Address))
+                         customer.Address = updateUserDto.Address;
+                     
+                     if (updateUserDto.Gender.HasValue)
+                         customer.Gender = updateUserDto.Gender.Value;
+                 }
+
+                 await _context.SaveChangesAsync();
+                 _logger.LogInformation("User {UserId} updated successfully by admin", userId);
+
+                 // Return updated user info
+                 var response = new UserResponseDto
+                 {
+                     UserId = user.UserId,
+                     Username = user.Username,
+                     Email = user.Email,
+                     PhoneNumber = user.PhoneNumber,
+                     Role = user.Role,
+                     CreatedAt = user.CreatedAt,
+                     CustomerName = user.Customers.FirstOrDefault()?.CustomerName,
+                     Address = user.Customers.FirstOrDefault()?.Address,
+                     Gender = user.Customers.FirstOrDefault()?.Gender
+                 };
+
+                 return Ok(response);
+             }
+             catch (Exception ex)
+             {
+                 _logger.LogError(ex, "Error updating user {UserId}", userId);
+                 return StatusCode(500, new { message = "Đã xảy ra lỗi khi cập nhật người dùng" });
+             }
+         }
+
+         /// <summary>
+         /// Tạo dữ liệu mẫu (Development only)
+         /// </summary>
+         [HttpPost("seed-data")]
+         [AuthorizeRole(1)] // Chỉ Administrator
+         public async Task<IActionResult> SeedData()
+         {
+             try
+             {
+                 // Kiểm tra xem đã có dữ liệu chưa
+                 if (await _context.Users.AnyAsync())
+                 {
+                     return BadRequest(new { message = "Dữ liệu đã tồn tại" });
+                 }
+
+                 using var transaction = await _context.Database.BeginTransactionAsync();
+
+                 try
+                 {
+                     // Tạo admin user
+                     var adminUser = new User
+                     {
+                         Username = "admin",
+                         Password = HashPassword("admin123"),
+                         Email = "admin@thuybinhduong.com",
+                         PhoneNumber = "0123456789",
+                         Role = 1,
+                         CreatedAt = DateTime.UtcNow
+                     };
+                     _context.Users.Add(adminUser);
+                     await _context.SaveChangesAsync();
+
+                     // Tạo khách hàng mẫu
+                     var customerUser1 = new User
+                     {
+                         Username = "customer1",
+                         Password = HashPassword("customer123"),
+                         Email = "customer1@gmail.com",
+                         PhoneNumber = "0987654321",
+                         Role = 0,
+                         CreatedAt = DateTime.UtcNow
+                     };
+                     _context.Users.Add(customerUser1);
+                     await _context.SaveChangesAsync();
+
+                     var customer1 = new Customer
+                     {
+                         UserId = customerUser1.UserId,
+                         CustomerName = "Nguyễn Văn An",
+                         Address = "123 Đường ABC, Quận 1, TP.HCM",
+                         Gender = 0
+                     };
+                     _context.Customers.Add(customer1);
+
+                     var customerUser2 = new User
+                     {
+                         Username = "customer2",
+                         Password = HashPassword("customer123"),
+                         Email = "customer2@gmail.com",
+                         PhoneNumber = "0912345678",
+                         Role = 0,
+                         CreatedAt = DateTime.UtcNow
+                     };
+                     _context.Users.Add(customerUser2);
+                     await _context.SaveChangesAsync();
+
+                     var customer2 = new Customer
+                     {
+                         UserId = customerUser2.UserId,
+                         CustomerName = "Trần Thị Bình",
+                         Address = "456 Đường XYZ, Quận 2, TP.HCM",
+                         Gender = 1
+                     };
+                     _context.Customers.Add(customer2);
+
+                     await _context.SaveChangesAsync();
+                     await transaction.CommitAsync();
+
+                     return Ok(new { message = "Tạo dữ liệu mẫu thành công" });
+                 }
+                 catch
+                 {
+                     await transaction.RollbackAsync();
+                     throw;
+                 }
+             }
+             catch (Exception ex)
+             {
+                 _logger.LogError(ex, "Error seeding data");
+                 return StatusCode(500, new { message = "Đã xảy ra lỗi khi tạo dữ liệu mẫu" });
              }
          }
 

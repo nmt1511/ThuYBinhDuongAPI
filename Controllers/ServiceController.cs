@@ -259,5 +259,358 @@ namespace ThuYBinhDuongAPI.Controllers
             }
             return "Liên hệ";
         }
+
+        #region Admin Methods
+
+        /// <summary>
+        /// Lấy tất cả dịch vụ (dành cho admin)
+        /// </summary>
+        [HttpGet("admin")]
+        [AuthorizeRole(1)] // Chỉ admin
+        public async Task<ActionResult<IEnumerable<ServiceResponseDto>>> GetAllServicesAdmin([FromQuery] int page = 1, [FromQuery] int limit = 10, [FromQuery] bool? isActive = null)
+        {
+            try
+            {
+                var skip = (page - 1) * limit;
+                var query = _context.Services.AsQueryable();
+
+                // Filter by active status if specified
+                if (isActive.HasValue)
+                {
+                    query = query.Where(s => s.IsActive == isActive.Value);
+                }
+
+                var services = await query
+                    .Select(s => new ServiceResponseDto
+                    {
+                        ServiceId = s.ServiceId,
+                        Name = s.Name,
+                        Description = s.Description,
+                        Price = s.Price,
+                        Duration = s.Duration,
+                        Category = s.Category,
+                        IsActive = s.IsActive,
+                        DisplayText = CreateDisplayText(s.Name, s.Price, s.Duration),
+                        PriceText = CreatePriceText(s.Price),
+                        DurationText = CreateDurationText(s.Duration)
+                    })
+                    .OrderBy(s => s.Category)
+                    .ThenBy(s => s.Name)
+                    .Skip(skip)
+                    .Take(limit)
+                    .ToListAsync();
+
+                var totalServices = await query.CountAsync();
+
+                _logger.LogInformation($"Admin retrieved {services.Count} services (page {page})");
+                return Ok(new
+                {
+                    services = services,
+                    pagination = new
+                    {
+                        page = page,
+                        limit = limit,
+                        total = totalServices,
+                        totalPages = (int)Math.Ceiling((double)totalServices / limit)
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving all services for admin");
+                return StatusCode(500, new { message = "Đã xảy ra lỗi khi lấy danh sách dịch vụ" });
+            }
+        }
+
+        /// <summary>
+        /// Tìm kiếm dịch vụ (dành cho admin)
+        /// </summary>
+        [HttpGet("admin/search")]
+        [AuthorizeRole(1)] // Chỉ admin
+        public async Task<ActionResult<IEnumerable<ServiceResponseDto>>> SearchServicesAdmin([FromQuery] string query, [FromQuery] int page = 1, [FromQuery] int limit = 10)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(query))
+                {
+                    return BadRequest(new { message = "Từ khóa tìm kiếm không được để trống" });
+                }
+
+                var skip = (page - 1) * limit;
+                var searchQuery = query.ToLower().Trim();
+
+                var services = await _context.Services
+                    .Where(s => s.Name.ToLower().Contains(searchQuery) ||
+                               (s.Description != null && s.Description.ToLower().Contains(searchQuery)) ||
+                               (s.Category != null && s.Category.ToLower().Contains(searchQuery)))
+                    .Select(s => new ServiceResponseDto
+                    {
+                        ServiceId = s.ServiceId,
+                        Name = s.Name,
+                        Description = s.Description,
+                        Price = s.Price,
+                        Duration = s.Duration,
+                        Category = s.Category,
+                        IsActive = s.IsActive,
+                        DisplayText = CreateDisplayText(s.Name, s.Price, s.Duration),
+                        PriceText = CreatePriceText(s.Price),
+                        DurationText = CreateDurationText(s.Duration)
+                    })
+                    .OrderBy(s => s.Category)
+                    .ThenBy(s => s.Name)
+                    .Skip(skip)
+                    .Take(limit)
+                    .ToListAsync();
+
+                var totalResults = await _context.Services
+                    .Where(s => s.Name.ToLower().Contains(searchQuery) ||
+                               (s.Description != null && s.Description.ToLower().Contains(searchQuery)) ||
+                               (s.Category != null && s.Category.ToLower().Contains(searchQuery)))
+                    .CountAsync();
+
+                _logger.LogInformation($"Admin searched services with query '{query}', found {totalResults} results");
+                return Ok(new
+                {
+                    services = services,
+                    searchQuery = query,
+                    pagination = new
+                    {
+                        page = page,
+                        limit = limit,
+                        total = totalResults,
+                        totalPages = (int)Math.Ceiling((double)totalResults / limit)
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error searching services for admin");
+                return StatusCode(500, new { message = "Đã xảy ra lỗi khi tìm kiếm dịch vụ" });
+            }
+        }
+
+        /// <summary>
+        /// Lấy chi tiết dịch vụ (dành cho admin)
+        /// </summary>
+        [HttpGet("admin/{id}")]
+        [AuthorizeRole(1)] // Chỉ admin
+        public async Task<ActionResult<ServiceResponseDto>> GetServiceAdmin(int id)
+        {
+            try
+            {
+                var service = await _context.Services
+                    .Where(s => s.ServiceId == id)
+                    .Select(s => new ServiceResponseDto
+                    {
+                        ServiceId = s.ServiceId,
+                        Name = s.Name,
+                        Description = s.Description,
+                        Price = s.Price,
+                        Duration = s.Duration,
+                        Category = s.Category,
+                        IsActive = s.IsActive,
+                        DisplayText = CreateDisplayText(s.Name, s.Price, s.Duration),
+                        PriceText = CreatePriceText(s.Price),
+                        DurationText = CreateDurationText(s.Duration)
+                    })
+                    .FirstOrDefaultAsync();
+
+                if (service == null)
+                {
+                    return NotFound(new { message = "Không tìm thấy dịch vụ" });
+                }
+
+                _logger.LogInformation($"Admin retrieved service {id}");
+                return Ok(service);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving service {ServiceId} for admin", id);
+                return StatusCode(500, new { message = "Đã xảy ra lỗi khi lấy thông tin dịch vụ" });
+            }
+        }
+
+        /// <summary>
+        /// Tạo dịch vụ mới (dành cho admin)
+        /// </summary>
+        [HttpPost("admin")]
+        [AuthorizeRole(1)] // Chỉ admin
+        public async Task<ActionResult<ServiceResponseDto>> CreateServiceAdmin([FromBody] CreateServiceDto createDto)
+        {
+            try
+            {
+                if (!ModelState.IsValid)
+                {
+                    return BadRequest(ModelState);
+                }
+
+                // Kiểm tra tên dịch vụ đã tồn tại chưa
+                var existingService = await _context.Services
+                    .AnyAsync(s => s.Name.ToLower() == createDto.Name.ToLower());
+
+                if (existingService)
+                {
+                    return BadRequest(new { message = "Tên dịch vụ đã tồn tại" });
+                }
+
+                var service = new Service
+                {
+                    Name = createDto.Name,
+                    Description = createDto.Description,
+                    Price = createDto.Price,
+                    Duration = createDto.Duration,
+                    Category = createDto.Category,
+                    IsActive = createDto.IsActive ?? true
+                };
+
+                _context.Services.Add(service);
+                await _context.SaveChangesAsync();
+
+                var response = new ServiceResponseDto
+                {
+                    ServiceId = service.ServiceId,
+                    Name = service.Name,
+                    Description = service.Description,
+                    Price = service.Price,
+                    Duration = service.Duration,
+                    Category = service.Category,
+                    IsActive = service.IsActive,
+                    DisplayText = CreateDisplayText(service.Name, service.Price, service.Duration),
+                    PriceText = CreatePriceText(service.Price),
+                    DurationText = CreateDurationText(service.Duration)
+                };
+
+                _logger.LogInformation($"Admin created service {service.ServiceId} - {service.Name}");
+                return CreatedAtAction(nameof(GetServiceAdmin), new { id = service.ServiceId }, response);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating service for admin");
+                return StatusCode(500, new { message = "Đã xảy ra lỗi khi tạo dịch vụ" });
+            }
+        }
+
+        /// <summary>
+        /// Cập nhật dịch vụ (dành cho admin)
+        /// </summary>
+        [HttpPut("admin/{id}")]
+        [AuthorizeRole(1)] // Chỉ admin
+        public async Task<IActionResult> UpdateServiceAdmin(int id, [FromBody] CreateServiceDto updateDto)
+        {
+            try
+            {
+                if (!ModelState.IsValid)
+                {
+                    return BadRequest(ModelState);
+                }
+
+                var service = await _context.Services.FindAsync(id);
+                if (service == null)
+                {
+                    return NotFound(new { message = "Không tìm thấy dịch vụ" });
+                }
+
+                // Kiểm tra tên dịch vụ đã tồn tại chưa (trừ dịch vụ hiện tại)
+                var existingService = await _context.Services
+                    .AnyAsync(s => s.Name.ToLower() == updateDto.Name.ToLower() && s.ServiceId != id);
+
+                if (existingService)
+                {
+                    return BadRequest(new { message = "Tên dịch vụ đã tồn tại" });
+                }
+
+                // Cập nhật thông tin
+                service.Name = updateDto.Name;
+                service.Description = updateDto.Description;
+                service.Price = updateDto.Price;
+                service.Duration = updateDto.Duration;
+                service.Category = updateDto.Category;
+                service.IsActive = updateDto.IsActive ?? service.IsActive;
+
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation($"Admin updated service {id}");
+                return Ok(new { message = "Cập nhật dịch vụ thành công" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating service {ServiceId} for admin", id);
+                return StatusCode(500, new { message = "Đã xảy ra lỗi khi cập nhật dịch vụ" });
+            }
+        }
+
+        /// <summary>
+        /// Cập nhật trạng thái dịch vụ (dành cho admin)
+        /// </summary>
+        [HttpPatch("admin/{id}/status")]
+        [AuthorizeRole(1)] // Chỉ admin
+        public async Task<IActionResult> UpdateServiceStatus(int id, [FromBody] bool isActive)
+        {
+            try
+            {
+                var service = await _context.Services.FindAsync(id);
+                if (service == null)
+                {
+                    return NotFound(new { message = "Không tìm thấy dịch vụ" });
+                }
+
+                var oldStatus = service.IsActive;
+                service.IsActive = isActive;
+                await _context.SaveChangesAsync();
+
+                var statusText = isActive ? "kích hoạt" : "vô hiệu hóa";
+                _logger.LogInformation($"Admin {statusText} service {id}");
+                return Ok(new 
+                { 
+                    message = $"Đã {statusText} dịch vụ thành công",
+                    oldStatus = oldStatus == true ? "Đang hoạt động" : "Không hoạt động",
+                    newStatus = isActive ? "Đang hoạt động" : "Không hoạt động"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating service {ServiceId} status for admin", id);
+                return StatusCode(500, new { message = "Đã xảy ra lỗi khi cập nhật trạng thái dịch vụ" });
+            }
+        }
+
+        /// <summary>
+        /// Xóa dịch vụ (dành cho admin)
+        /// </summary>
+        [HttpDelete("admin/{id}")]
+        [AuthorizeRole(1)] // Chỉ admin
+        public async Task<IActionResult> DeleteServiceAdmin(int id)
+        {
+            try
+            {
+                var service = await _context.Services.FindAsync(id);
+                if (service == null)
+                {
+                    return NotFound(new { message = "Không tìm thấy dịch vụ" });
+                }
+
+                // Kiểm tra xem dịch vụ có đang được sử dụng trong appointments không
+                var hasActiveAppointments = await _context.Appointments
+                    .AnyAsync(a => a.ServiceId == id && (a.Status == 0 || a.Status == 1)); // Chờ xác nhận hoặc đã xác nhận
+
+                if (hasActiveAppointments)
+                {
+                    return BadRequest(new { message = "Không thể xóa dịch vụ đang có lịch hẹn hoạt động" });
+                }
+
+                _context.Services.Remove(service);
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation($"Admin deleted service {id} - {service.Name}");
+                return Ok(new { message = "Xóa dịch vụ thành công" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting service {ServiceId} for admin", id);
+                return StatusCode(500, new { message = "Đã xảy ra lỗi khi xóa dịch vụ" });
+            }
+        }
+
+        #endregion
     }
 } 

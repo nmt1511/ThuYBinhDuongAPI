@@ -1,0 +1,4 @@
+# Các file cấu hình chứa thông tin nhạy cảm
+appsettings.Local.json
+appsettings.Production.json
+

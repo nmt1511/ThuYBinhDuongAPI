@@ -4,3 +4,61 @@ GET {{ThuYBinhDuongAPI_HostAddress}}/weatherforecast/
 Accept: application/json
 
 ###
+
+# Test Login Admin
+POST {{ThuYBinhDuongAPI_HostAddress}}/api/user/login
+Content-Type: application/json
+
+{
+  "username": "admin",
+  "password": "admin123"
+}
+
+###
+
+# Đăng ký tài khoản admin để test (nếu chưa có)
+POST {{ThuYBinhDuongAPI_HostAddress}}/api/user/register
+Content-Type: application/json
+
+{
+  "username": "admin",
+  "password": "admin123",
+  "email": "admin@example.com",
+  "phoneNumber": "0123456789",
+  "role": 1
+}
+
+###
+
+# Test validate token (dùng token từ login admin ở trên)
+GET {{ThuYBinhDuongAPI_HostAddress}}/api/user/validate-token
+Authorization: Bearer YOUR_ADMIN_TOKEN_HERE
+
+###
+
+# Test lấy danh sách users (chỉ admin)
+GET {{ThuYBinhDuongAPI_HostAddress}}/api/user/list?page=1&limit=10
+Authorization: Bearer YOUR_ADMIN_TOKEN_HERE
+
+###
+
+# Test lấy profile user theo ID (chỉ admin)
+GET {{ThuYBinhDuongAPI_HostAddress}}/api/user/profile/1
+Authorization: Bearer YOUR_ADMIN_TOKEN_HERE
+
+###
+
+# Test cập nhật role user (chỉ admin)
+PUT {{ThuYBinhDuongAPI_HostAddress}}/api/user/update-role/2
+Content-Type: application/json
+Authorization: Bearer YOUR_ADMIN_TOKEN_HERE
+
+1
+
+###
+
+# Test thử truy cập endpoint admin với token customer (should fail)
+GET {{ThuYBinhDuongAPI_HostAddress}}/api/user/list
+Authorization: Bearer YOUR_CUSTOMER_TOKEN_HERE
+
+###

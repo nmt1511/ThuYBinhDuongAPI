@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("ThuYBinhDuongAPI")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+3fdcc7ca66ff3ab28e3dca35890b19c5613a40d7")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+3c08abb9a99520ac96824ad451e5ea8acb1aac70")]
 [assembly: System.Reflection.AssemblyProductAttribute("ThuYBinhDuongAPI")]
 [assembly: System.Reflection.AssemblyTitleAttribute("ThuYBinhDuongAPI")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

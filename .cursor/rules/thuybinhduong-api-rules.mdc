@@ -115,6 +115,66 @@ This is a .NET 9.0 Web API for a Vietnamese veterinary clinic management system.
 - **Project File:** [ThuYBinhDuongAPI.csproj](mdc:ThuYBinhDuongAPI.csproj)
 - **Launch Settings:** [Properties/launchSettings.json](mdc:Properties/launchSettings.json)
 
+## Current API Endpoints Status
+
+### Implemented Endpoints
+- **UserController**: Authentication, registration, profile management, admin user operations
+  - POST /api/user/login ✅
+  - POST /api/user/register ✅
+  - GET /api/user/profile ✅
+  - GET /api/user/profile/{id} ✅ (Admin only)
+  - GET /api/user/list ✅ (Admin only)
+  - PUT /api/user/update-role/{userId} ✅ (Admin only)
+
+### Endpoints to Implement/Enhance
+
+#### Pet Management (Admin)
+- **PetController admin routes**: Need to add admin-specific endpoints
+  - GET /api/pet/admin - List all pets with customer info
+  - GET /api/pet/admin/search - Search pets by name, species, customer
+  - POST /api/pet/admin - Create pet for any customer
+  - PUT /api/pet/admin/{id} - Update any pet
+  - DELETE /api/pet/admin/{id} - Delete any pet
+
+#### Appointment Management (Admin)
+- **AppointmentController admin routes**: Need admin management endpoints
+  - GET /api/appointment/admin - List all appointments
+  - POST /api/appointment/admin - Create appointment for any customer
+  - PUT /api/appointment/admin/{id} - Update any appointment
+  - PATCH /api/appointment/admin/{id}/status - Update appointment status
+  - DELETE /api/appointment/admin/{id} - Cancel/delete appointment
+
+#### News Management (Admin)
+- **NewsController admin routes**: Need admin content management
+  - POST /api/news/admin - Create news/events
+  - PUT /api/news/admin/{id} - Update news content
+  - DELETE /api/news/admin/{id} - Delete news
+  - PATCH /api/news/admin/{id}/status - Publish/unpublish
+
+#### Service Management (Admin)
+- **ServiceController admin routes**: Need admin service management
+  - POST /api/service/admin - Create new service
+  - PUT /api/service/admin/{id} - Update service details
+  - DELETE /api/service/admin/{id} - Delete service
+  - PUT /api/service/admin/{id}/price - Update pricing
+
+#### Doctor Management (Admin)
+- **DoctorController admin routes**: Need complete doctor management
+  - GET /api/doctor/admin - List all doctors
+  - POST /api/doctor/admin - Create doctor profile
+  - PUT /api/doctor/admin/{id} - Update doctor info
+  - DELETE /api/doctor/admin/{id} - Remove doctor
+  - PUT /api/doctor/admin/{id}/schedule - Manage availability
+
+#### Customer Management (Admin)
+- **CustomerController**: Need new controller for customer management
+  - GET /api/customer/admin - List all customers
+  - GET /api/customer/admin/search - Search customers
+  - POST /api/customer/admin - Create customer account
+  - PUT /api/customer/admin/{id} - Update customer info
+  - DELETE /api/customer/admin/{id} - Soft delete customer
+  - GET /api/customer/admin/{id}/stats - Customer statistics
+
 ## Vietnamese Language Support
 - All user-facing messages and error responses are in Vietnamese
 - API documentation and comments use Vietnamese
@@ -127,7 +187,14 @@ This API serves a Vietnamese veterinary clinic, so all business logic, error mes
 
 ### User Roles & Permissions
 - **Role 0 - Customer (Khách hàng)**: Can manage own profile, pets, appointments, view services and news
-- **Role 1 - Administrator (Quản trị viên)**: Full system access and management capabilities
+- **Role 1 - Administrator (Quản trị viên)**: Full system access and management capabilities including:
+  - User authentication and management
+  - Pet records management for all customers
+  - Appointment scheduling and status management
+  - News and events content management
+  - Service catalog management
+  - Doctor management
+  - Customer management
 
 ### Appointment Status Rules
 - **Status 0**: Chờ xác nhận (Pending) - Customer can cancel
@@ -177,14 +244,96 @@ This API serves a Vietnamese veterinary clinic, so all business logic, error mes
 - Appointment ← Pet (appointment.pet_id = pet.pet_id)
 - Appointment ← Service (appointment.service_id = service.service_id)
 
+### Administrator Features (Role 1) - Complete System Management
+
+#### 1. Authentication & User Management
+- **Login**: POST /api/user/login - Admin authentication with JWT token
+- **Profile management**: Standard user profile operations
+- **Token validation**: GET /api/user/validate-token - Verify admin token validity
+
+#### 2. Pet Records Management (Admin manages all pets)
+- **View all pets**: GET /api/pets/admin - List all pets from all customers with pagination
+- **Search pets**: GET /api/pets/admin/search?query={term} - Search by pet name, species, customer name
+- **View pet details**: GET /api/pets/admin/{id} - View specific pet details with owner info
+- **Add pet**: POST /api/pets/admin - Create pet for any customer
+- **Update pet**: PUT /api/pets/admin/{id} - Update any pet record
+- **Delete pet**: DELETE /api/pets/admin/{id} - Remove pet record
+- **Filter by customer**: GET /api/pets/admin?customerId={id} - View pets by specific customer
+
+#### 3. Appointment Management (Admin controls all appointments)
+- **View all appointments**: GET /api/appointments/admin - List all appointments with pagination
+- **Search appointments**: GET /api/appointments/admin/search?query={term} - Search by customer, pet, service
+- **View appointment details**: GET /api/appointments/admin/{id} - Full appointment details
+- **Create appointment**: POST /api/appointments/admin - Schedule appointment for any customer
+- **Update appointment**: PUT /api/appointments/admin/{id} - Modify appointment details
+- **Update status**: PATCH /api/appointments/admin/{id}/status - Change appointment status (0-3)
+- **Delete appointment**: DELETE /api/appointments/admin/{id} - Remove appointment
+- **Filter by status**: GET /api/appointments/admin?status={status} - Filter by appointment status
+- **Filter by date**: GET /api/appointments/admin?date={date} - Filter by appointment date
+
+#### 4. News & Events Management
+- **View all news**: GET /api/news/admin - List all news with pagination and search
+- **Search news**: GET /api/news/admin/search?query={term} - Search by title, content, tags
+- **View news details**: GET /api/news/admin/{id} - View specific news item
+- **Create news**: POST /api/news/admin - Add new news/event
+- **Update news**: PUT /api/news/admin/{id} - Edit news content
+- **Delete news**: DELETE /api/news/admin/{id} - Remove news item
+- **Publish/unpublish**: PATCH /api/news/admin/{id}/status - Control news visibility
+
+#### 5. Service Management
+- **View all services**: GET /api/services/admin - List all services with pagination
+- **Search services**: GET /api/services/admin/search?query={term} - Search by name, description
+- **View service details**: GET /api/services/admin/{id} - View specific service
+- **Create service**: POST /api/services/admin - Add new service
+- **Update service**: PUT /api/services/admin/{id} - Edit service details
+- **Delete service**: DELETE /api/services/admin/{id} - Remove service
+- **Manage pricing**: PUT /api/services/admin/{id}/price - Update service pricing
+
+#### 6. Doctor Management
+- **View all doctors**: GET /api/doctors/admin - List all doctors with pagination
+- **Search doctors**: GET /api/doctors/admin/search?query={term} - Search by name, specialization
+- **View doctor details**: GET /api/doctors/admin/{id} - View doctor profile and schedule
+- **Create doctor**: POST /api/doctors/admin - Add new doctor
+- **Update doctor**: PUT /api/doctors/admin/{id} - Edit doctor information
+- **Delete doctor**: DELETE /api/doctors/admin/{id} - Remove doctor record
+- **Manage schedule**: PUT /api/doctors/admin/{id}/schedule - Update doctor availability
+
+#### 7. Customer Management
+- **View all customers**: GET /api/customers/admin - List all customers with pagination
+- **Search customers**: GET /api/customers/admin/search?query={term} - Search by name, email, phone
+- **View customer details**: GET /api/customers/admin/{id} - View customer profile and pets
+- **Create customer**: POST /api/customers/admin - Add new customer (with User record)
+- **Update customer**: PUT /api/customers/admin/{id} - Edit customer information
+- **Delete customer**: DELETE /api/customers/admin/{id} - Remove customer (soft delete)
+- **Customer statistics**: GET /api/customers/admin/{id}/stats - View customer appointment/pet history
+
+### Authorization Implementation for Admin Features
+- All admin endpoints must use `[AuthorizeRole(1)]` attribute
+- Validate admin role in JWT claims before allowing access
+- Admin can access and modify all data regardless of ownership
+- Implement proper logging for admin actions
+- Return comprehensive data including related entity information
+
 ### Implementation Priority
 1. **First**: Complete User/Customer registration with proper foreign key relationships
 2. **Second**: Pet management endpoints with customer authorization
 3. **Third**: Appointment creation and cancellation with status rules
 4. **Fourth**: News and Services viewing with search functionality
+5. **Fifth**: Admin authentication and user management
+6. **Sixth**: Admin pet management with full CRUD operations
+7. **Seventh**: Admin appointment management with status control
+8. **Eighth**: Admin news/events and services management
+9. **Ninth**: Doctor and customer management for admin
 
 ### Security for Customer Features
 - Always validate that customer can only access their own data
 - Use JWT claims to get customer_id for data filtering
 - Implement proper authorization checks in all endpoints
 - Validate appointment cancellation rules (only status 0 can be cancelled)
+
+### Security for Admin Features
+- Admin role (Role=1) required for all admin endpoints
+- Log all admin actions for audit trail
+- Validate admin permissions before data modification
+- Return appropriate error messages for unauthorized access
+- Implement rate limiting for admin operations if needed

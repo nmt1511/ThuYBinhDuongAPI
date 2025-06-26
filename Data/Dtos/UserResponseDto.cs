@@ -10,11 +10,16 @@ namespace ThuYBinhDuongAPI.Data.Dtos
         public string RoleName => Role switch
         {
             0 => "Customer",
-            1 => "Doctor", 
-            2 => "Admin",
+            1 => "Administrator",
+            2 => "Doctor",
             _ => "Unknown"
         };
         public DateTime? CreatedAt { get; set; }
         public string? Token { get; set; }
+        
+        // Customer-specific fields (only populated for customers)
+        public string? CustomerName { get; set; }
+        public string? Address { get; set; }
+        public int? Gender { get; set; }
     }
 } 

@@ -553,3 +553,4 @@ D:\Download\thuybinhduong\ThuYBinhDuongAPI\bin\Debug\net9.0\ru\Microsoft.CodeAna
 D:\Download\thuybinhduong\ThuYBinhDuongAPI\bin\Debug\net9.0\tr\Microsoft.CodeAnalysis.Scripting.resources.dll
 D:\Download\thuybinhduong\ThuYBinhDuongAPI\bin\Debug\net9.0\zh-Hans\Microsoft.CodeAnalysis.Scripting.resources.dll
 D:\Download\thuybinhduong\ThuYBinhDuongAPI\bin\Debug\net9.0\zh-Hant\Microsoft.CodeAnalysis.Scripting.resources.dll
+D:\Download\thuybinhduong\ThuYBinhDuongAPI\bin\Debug\net9.0\appsettings.Local.json
