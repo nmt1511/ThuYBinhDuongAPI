@@ -183,6 +183,41 @@ This is a .NET 9.0 Web API for a Vietnamese veterinary clinic management system.
 
 This API serves a Vietnamese veterinary clinic, so all business logic, error messages, and documentation should maintain Vietnamese language support and cultural context.
 
+## 🚨 CRITICAL DEVELOPMENT RULE - ROLE SEPARATION
+
+### STRICT ROLE-BASED DEVELOPMENT RULE
+**When the user asks about or specifies a particular role (Admin or Customer), NEVER modify code for the other role without explicit permission.**
+
+#### Implementation Rules:
+1. **Admin-focused requests**: Only modify admin-related code (Role 1 logic)
+   - Admin controllers, admin endpoints, admin DTOs
+   - Admin-specific business logic and validations
+   - Do NOT touch customer-specific code unless explicitly asked
+
+2. **Customer-focused requests**: Only modify customer-related code (Role 0 logic)
+   - Customer controllers, customer endpoints, customer DTOs
+   - Customer-specific business logic and validations
+   - Do NOT touch admin-specific code unless explicitly asked
+
+3. **Shared code modifications**: Only when explicitly mentioned or necessary for both roles
+   - Base models, shared DTOs, common services
+   - Database context changes affecting both roles
+   - Authentication/authorization shared logic
+
+#### Examples:
+- ❌ User asks "Add admin pet management" → Do NOT modify customer pet endpoints
+- ❌ User asks "Fix customer login" → Do NOT modify admin user management
+- ✅ User asks "Add pet management for admin and customer" → Modify both role codes
+- ✅ User asks "Fix database connection for all roles" → Modify shared infrastructure
+
+#### Verification Questions:
+Before making changes, ask yourself:
+1. Which specific role is the user referring to?
+2. Am I modifying code that affects the non-mentioned role?
+3. Do I have explicit permission to modify cross-role functionality?
+
+**This rule prevents accidental breaking changes to working functionality in one role when fixing/adding features for another role.**
+
 ## Business Rules & Requirements
 
 ### User Roles & Permissions
