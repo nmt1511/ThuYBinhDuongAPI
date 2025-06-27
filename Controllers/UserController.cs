@@ -547,6 +547,64 @@ namespace ThuYBinhDuongAPI.Controllers
              }
          }
 
+        /// <summary>
+        /// Cập nhật thông tin cá nhân của khách hàng (Customer)
+        /// </summary>
+        [HttpPut("update-customer")]
+        [Authorize(Roles = "0")] // Chỉ cho phép khách hàng
+        public async Task<IActionResult> UpdateCustomer([FromBody] UpdateCustomerDto dto)
+        {
+            try
+            {
+                var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                if (!int.TryParse(userIdClaim, out int userId))
+                {
+                    return Unauthorized(new { message = "Token không hợp lệ" });
+                }
+
+                var customer = await _context.Customers.FirstOrDefaultAsync(c => c.UserId == userId);
+                if (customer == null)
+                {
+                    return NotFound(new { message = "Không tìm thấy thông tin khách hàng" });
+                }
+
+                var user = await _context.Users.FindAsync(userId);
+                if (user == null)
+                {
+                    return NotFound(new { message = "Không tìm thấy thông tin người dùng" });
+                }
+
+                // Kiểm tra email đã tồn tại cho user khác chưa
+                if (await _context.Users.AnyAsync(u => u.Email == dto.Email && u.UserId != userId))
+                {
+                    return BadRequest(new { message = "Email đã được sử dụng bởi người dùng khác" });
+                }
+                // Kiểm tra số điện thoại đã tồn tại cho user khác chưa (nếu có nhập)
+                if (!string.IsNullOrEmpty(dto.PhoneNumber) && await _context.Users.AnyAsync(u => u.PhoneNumber == dto.PhoneNumber && u.UserId != userId))
+                {
+                    return BadRequest(new { message = "Số điện thoại đã được sử dụng bởi người dùng khác" });
+                }
+
+                // Cập nhật thông tin Customer
+                customer.CustomerName = dto.CustomerName;
+                customer.Address = dto.Address;
+                customer.Gender = dto.Gender;
+
+                // Cập nhật thông tin User
+                user.Email = dto.Email;
+                user.PhoneNumber = dto.PhoneNumber;
+
+                await _context.SaveChangesAsync();
+
+                return Ok(new { message = "Cập nhật thông tin cá nhân thành công" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating customer info");
+                return StatusCode(500, new { message = "Đã xảy ra lỗi khi cập nhật thông tin cá nhân" });
+            }
+        }
+
         #region Private Methods
 
         /// <summary>
