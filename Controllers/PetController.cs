@@ -654,6 +654,176 @@ namespace ThuYBinhDuongAPI.Controllers
             }
         }
 
+        /// <summary>
+        /// Lấy danh sách khách hàng (dành cho admin pet management)
+        /// </summary>
+        [HttpGet("admin/customers")]
+        [AuthorizeRole(1)] // Chỉ admin
+        public async Task<ActionResult<IEnumerable<object>>> GetCustomersForPetManagement([FromQuery] int page = 1, [FromQuery] int limit = 1000, [FromQuery] string? search = null)
+        {
+            try
+            {
+                var skip = (page - 1) * limit;
+                var query = _context.Customers
+                    .Include(c => c.User)
+                    .AsQueryable();
+
+                // Search filter
+                if (!string.IsNullOrWhiteSpace(search))
+                {
+                    var searchTerm = search.ToLower().Trim();
+                    query = query.Where(c => 
+                        c.CustomerName.ToLower().Contains(searchTerm) ||
+                        (c.User.Email != null && c.User.Email.ToLower().Contains(searchTerm)) ||
+                        (c.User.PhoneNumber != null && c.User.PhoneNumber.Contains(searchTerm))
+                    );
+                }
+
+                var customers = await query
+                    .Select(c => new
+                    {
+                        CustomerId = c.CustomerId,
+                        CustomerName = c.CustomerName,
+                        Email = c.User.Email,
+                        PhoneNumber = c.User.PhoneNumber,
+                        Address = c.Address,
+                        Gender = c.Gender,
+                        UserId = c.UserId,
+                        Username = c.User.Username,
+                        Role = c.User.Role
+                    })
+                    .OrderBy(c => c.CustomerName)
+                    .Skip(skip)
+                    .Take(limit)
+                    .ToListAsync();
+
+                var totalCustomers = await query.CountAsync();
+
+                _logger.LogInformation($"Admin retrieved {customers.Count} customers for pet management (page {page})");
+                return Ok(new
+                {
+                    customers = customers,
+                    pagination = new
+                    {
+                        page = page,
+                        limit = limit,
+                        total = totalCustomers,
+                        totalPages = (int)Math.Ceiling((double)totalCustomers / limit)
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving customers for pet management");
+                return StatusCode(500, new { message = "Đã xảy ra lỗi khi lấy danh sách khách hàng" });
+            }
+        }
+
+        /// <summary>
+        /// Tạo dữ liệu mẫu cho Pet management (dành cho admin)
+        /// </summary>
+        [HttpPost("admin/seed-customers")]
+        [AuthorizeRole(1)] // Chỉ admin
+        public async Task<IActionResult> SeedCustomersForPetManagement()
+        {
+            try
+            {
+                // Kiểm tra xem đã có customers chưa
+                var existingCustomers = await _context.Customers.CountAsync();
+                if (existingCustomers > 0)
+                {
+                    return BadRequest(new { message = "Đã có dữ liệu khách hàng trong hệ thống" });
+                }
+
+                using var transaction = await _context.Database.BeginTransactionAsync();
+
+                try
+                {
+                    // Tạo khách hàng mẫu 1
+                    var customerUser1 = new User
+                    {
+                        Username = "customer1",
+                        Password = "hashed_password_1", // In real implementation, hash this
+                        Email = "nguyenvanan@gmail.com",
+                        PhoneNumber = "0987654321",
+                        Role = 0, // Customer role
+                        CreatedAt = DateTime.UtcNow
+                    };
+                    _context.Users.Add(customerUser1);
+                    await _context.SaveChangesAsync();
+
+                    var customer1 = new Customer
+                    {
+                        UserId = customerUser1.UserId,
+                        CustomerName = "Nguyễn Văn An",
+                        Address = "123 Đường Lê Lợi, Quận 1, TP.HCM",
+                        Gender = 0 // Male
+                    };
+                    _context.Customers.Add(customer1);
+
+                    // Tạo khách hàng mẫu 2
+                    var customerUser2 = new User
+                    {
+                        Username = "customer2",
+                        Password = "hashed_password_2", // In real implementation, hash this
+                        Email = "tranthibinh@gmail.com",
+                        PhoneNumber = "0912345678",
+                        Role = 0, // Customer role
+                        CreatedAt = DateTime.UtcNow
+                    };
+                    _context.Users.Add(customerUser2);
+                    await _context.SaveChangesAsync();
+
+                    var customer2 = new Customer
+                    {
+                        UserId = customerUser2.UserId,
+                        CustomerName = "Trần Thị Bình",
+                        Address = "456 Đường Nguyễn Huệ, Quận 3, TP.HCM",
+                        Gender = 1 // Female
+                    };
+                    _context.Customers.Add(customer2);
+
+                    // Tạo khách hàng mẫu 3
+                    var customerUser3 = new User
+                    {
+                        Username = "customer3",
+                        Password = "hashed_password_3", // In real implementation, hash this
+                        Email = "levanca@gmail.com",
+                        PhoneNumber = "0903456789",
+                        Role = 0, // Customer role
+                        CreatedAt = DateTime.UtcNow
+                    };
+                    _context.Users.Add(customerUser3);
+                    await _context.SaveChangesAsync();
+
+                    var customer3 = new Customer
+                    {
+                        UserId = customerUser3.UserId,
+                        CustomerName = "Lê Văn Ca",
+                        Address = "789 Đường Võ Văn Tần, Quận 5, TP.HCM",
+                        Gender = 0 // Male
+                    };
+                    _context.Customers.Add(customer3);
+
+                    await _context.SaveChangesAsync();
+                    await transaction.CommitAsync();
+
+                    _logger.LogInformation("Admin created seed customers for pet management");
+                    return Ok(new { message = "Đã tạo dữ liệu khách hàng mẫu thành công", count = 3 });
+                }
+                catch (Exception ex)
+                {
+                    await transaction.RollbackAsync();
+                    throw ex;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating seed customers for pet management");
+                return StatusCode(500, new { message = "Đã xảy ra lỗi khi tạo dữ liệu khách hàng mẫu" });
+            }
+        }
+
         #endregion
     }
 } 
