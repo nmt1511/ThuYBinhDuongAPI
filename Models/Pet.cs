@@ -19,6 +19,8 @@ public partial class Pet
 
     public string? ImageUrl { get; set; }
 
+    public string? Gender { get; set; }
+
     public virtual ICollection<Appointment> Appointments { get; set; } = new List<Appointment>();
 
     public virtual Customer Customer { get; set; } = null!;

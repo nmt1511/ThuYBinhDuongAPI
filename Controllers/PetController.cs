@@ -51,6 +51,7 @@ namespace ThuYBinhDuongAPI.Controllers
                         Breed = p.Breed,
                         BirthDate = p.BirthDate,
                         ImageUrl = p.ImageUrl,
+                        Gender = p.Gender,
                         Age = p.BirthDate.HasValue ? CalculateAge(p.BirthDate.Value) : null,
                         CustomerName = p.Customer.CustomerName
                     })
@@ -94,6 +95,7 @@ namespace ThuYBinhDuongAPI.Controllers
                         Breed = p.Breed,
                         BirthDate = p.BirthDate,
                         ImageUrl = p.ImageUrl,
+                        Gender = p.Gender,
                         Age = p.BirthDate.HasValue ? CalculateAge(p.BirthDate.Value) : null,
                         CustomerName = p.Customer.CustomerName
                     })
@@ -155,11 +157,20 @@ namespace ThuYBinhDuongAPI.Controllers
                 var pet = new Pet
                 {
                     CustomerId = customerId.Value,
+<<<<<<< HEAD
                     Name = createPetDto.Name.Trim(),
                     Species = createPetDto.Species.Trim(),
                     Breed = !string.IsNullOrWhiteSpace(createPetDto.Breed) ? createPetDto.Breed.Trim() : null,
                     BirthDate = createPetDto.BirthDate ?? ParseBirthDate(createPetDto.BirthDateString),
                     ImageUrl = !string.IsNullOrWhiteSpace(createPetDto.ImageUrl) ? createPetDto.ImageUrl.Trim() : null
+=======
+                    Name = createPetDto.Name,
+                    Species = createPetDto.Species,
+                    Breed = createPetDto.Breed,
+                    BirthDate = createPetDto.BirthDate,
+                    ImageUrl = createPetDto.ImageUrl,
+                    Gender = createPetDto.Gender
+>>>>>>> 0f9bce9347b09d5ffa687b7ce2372ec37d5de8d5
                 };
 
                 _context.Pets.Add(pet);
@@ -179,6 +190,7 @@ namespace ThuYBinhDuongAPI.Controllers
                     Breed = pet.Breed,
                     BirthDate = pet.BirthDate,
                     ImageUrl = pet.ImageUrl,
+                    Gender = pet.Gender,
                     Age = pet.BirthDate.HasValue ? CalculateAge(pet.BirthDate.Value) : null,
                     CustomerName = pet.Customer.CustomerName
                 };
@@ -242,11 +254,20 @@ namespace ThuYBinhDuongAPI.Controllers
                 }
 
                 // Cập nhật thông tin
+<<<<<<< HEAD
                 pet.Name = updatePetDto.Name.Trim();
                 pet.Species = updatePetDto.Species.Trim();
                 pet.Breed = !string.IsNullOrWhiteSpace(updatePetDto.Breed) ? updatePetDto.Breed.Trim() : null;
                 pet.BirthDate = updatePetDto.BirthDate ?? ParseBirthDate(updatePetDto.BirthDateString);
                 pet.ImageUrl = !string.IsNullOrWhiteSpace(updatePetDto.ImageUrl) ? updatePetDto.ImageUrl.Trim() : null;
+=======
+                pet.Name = updatePetDto.Name;
+                pet.Species = updatePetDto.Species;
+                pet.Breed = updatePetDto.Breed;
+                pet.BirthDate = updatePetDto.BirthDate;
+                pet.ImageUrl = updatePetDto.ImageUrl;
+                pet.Gender = updatePetDto.Gender;
+>>>>>>> 0f9bce9347b09d5ffa687b7ce2372ec37d5de8d5
 
                 await _context.SaveChangesAsync();
 
@@ -389,6 +410,7 @@ namespace ThuYBinhDuongAPI.Controllers
                         Breed = p.Breed,
                         BirthDate = p.BirthDate,
                         ImageUrl = p.ImageUrl,
+                        Gender = p.Gender,
                         Age = p.BirthDate.HasValue ? CalculateAge(p.BirthDate.Value) : null,
                         CustomerName = p.Customer.CustomerName
                     })
@@ -452,6 +474,7 @@ namespace ThuYBinhDuongAPI.Controllers
                         Breed = p.Breed,
                         BirthDate = p.BirthDate,
                         ImageUrl = p.ImageUrl,
+                        Gender = p.Gender,
                         Age = p.BirthDate.HasValue ? CalculateAge(p.BirthDate.Value) : null,
                         CustomerName = p.Customer.CustomerName
                     })
@@ -511,6 +534,7 @@ namespace ThuYBinhDuongAPI.Controllers
                         Breed = p.Breed,
                         BirthDate = p.BirthDate,
                         ImageUrl = p.ImageUrl,
+                        Gender = p.Gender,
                         Age = p.BirthDate.HasValue ? CalculateAge(p.BirthDate.Value) : null,
                         CustomerName = p.Customer.CustomerName
                     })
@@ -564,11 +588,20 @@ namespace ThuYBinhDuongAPI.Controllers
                 var pet = new Pet
                 {
                     CustomerId = customerId,
+<<<<<<< HEAD
                     Name = createPetDto.Name.Trim(),
                     Species = createPetDto.Species.Trim(),
                     Breed = !string.IsNullOrWhiteSpace(createPetDto.Breed) ? createPetDto.Breed.Trim() : null,
                     BirthDate = createPetDto.BirthDate ?? ParseBirthDate(createPetDto.BirthDateString),
                     ImageUrl = !string.IsNullOrWhiteSpace(createPetDto.ImageUrl) ? createPetDto.ImageUrl.Trim() : null
+=======
+                    Name = createPetDto.Name,
+                    Species = createPetDto.Species,
+                    Breed = createPetDto.Breed,
+                    BirthDate = createPetDto.BirthDate,
+                    ImageUrl = createPetDto.ImageUrl,
+                    Gender = createPetDto.Gender
+>>>>>>> 0f9bce9347b09d5ffa687b7ce2372ec37d5de8d5
                 };
 
                 _context.Pets.Add(pet);
@@ -588,6 +621,7 @@ namespace ThuYBinhDuongAPI.Controllers
                     Breed = pet.Breed,
                     BirthDate = pet.BirthDate,
                     ImageUrl = pet.ImageUrl,
+                    Gender = pet.Gender,
                     Age = pet.BirthDate.HasValue ? CalculateAge(pet.BirthDate.Value) : null,
                     CustomerName = pet.Customer.CustomerName
                 };
@@ -632,11 +666,20 @@ namespace ThuYBinhDuongAPI.Controllers
                 }
 
                 // Cập nhật thông tin
+<<<<<<< HEAD
                 pet.Name = updatePetDto.Name.Trim();
                 pet.Species = updatePetDto.Species.Trim();
                 pet.Breed = !string.IsNullOrWhiteSpace(updatePetDto.Breed) ? updatePetDto.Breed.Trim() : null;
                 pet.BirthDate = updatePetDto.BirthDate ?? ParseBirthDate(updatePetDto.BirthDateString);
                 pet.ImageUrl = !string.IsNullOrWhiteSpace(updatePetDto.ImageUrl) ? updatePetDto.ImageUrl.Trim() : null;
+=======
+                pet.Name = updatePetDto.Name;
+                pet.Species = updatePetDto.Species;
+                pet.Breed = updatePetDto.Breed;
+                pet.BirthDate = updatePetDto.BirthDate;
+                pet.ImageUrl = updatePetDto.ImageUrl;
+                pet.Gender = updatePetDto.Gender;
+>>>>>>> 0f9bce9347b09d5ffa687b7ce2372ec37d5de8d5
 
                 await _context.SaveChangesAsync();
 
@@ -684,6 +727,159 @@ namespace ThuYBinhDuongAPI.Controllers
             {
                 _logger.LogError(ex, "Error deleting pet {PetId} for admin", id);
                 return StatusCode(500, new { message = "Đã xảy ra lỗi khi xóa thú cưng" });
+            }
+        }
+
+        /// <summary>
+        /// Lấy danh sách khách hàng (dành cho admin pet management)
+        /// </summary>
+        [HttpGet("admin/customers")]
+        [AuthorizeRole(1)] // Chỉ admin
+        public async Task<ActionResult<IEnumerable<object>>> GetCustomersForPetManagement([FromQuery] int page = 1, [FromQuery] int limit = 1000, [FromQuery] string? search = null)
+        {
+            try
+            {
+                var skip = (page - 1) * limit;
+                var query = _context.Customers
+                    .Include(c => c.User)
+                    .AsQueryable();
+
+                // Search filter
+                if (!string.IsNullOrWhiteSpace(search))
+                {
+                    var searchTerm = search.ToLower().Trim();
+                    query = query.Where(c => 
+                        c.CustomerName.ToLower().Contains(searchTerm) ||
+                        (c.User.Email != null && c.User.Email.ToLower().Contains(searchTerm)) ||
+                        (c.User.PhoneNumber != null && c.User.PhoneNumber.Contains(searchTerm))
+                    );
+                }
+
+                var customers = await query
+                    .Select(c => new
+                    {
+                        CustomerId = c.CustomerId,
+                        CustomerName = c.CustomerName,
+                        Email = c.User.Email,
+                        PhoneNumber = c.User.PhoneNumber,
+                        Address = c.Address,
+                        Gender = c.Gender,
+                        UserId = c.UserId,
+                        Username = c.User.Username,
+                        Role = c.User.Role
+                    })
+                    .OrderBy(c => c.CustomerName)
+                    .Skip(skip)
+                    .Take(limit)
+                    .ToListAsync();
+
+                var totalCustomers = await query.CountAsync();
+
+                _logger.LogInformation($"Admin retrieved {customers.Count} customers for pet management (page {page})");
+                return Ok(new
+                {
+                    customers = customers,
+                    pagination = new
+                    {
+                        page = page,
+                        limit = limit,
+                        total = totalCustomers,
+                        totalPages = (int)Math.Ceiling((double)totalCustomers / limit)
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving customers for pet management");
+                return StatusCode(500, new { message = "Đã xảy ra lỗi khi lấy danh sách khách hàng" });
+            }
+        }
+
+        /// <summary>
+        /// Tạo dữ liệu pets mẫu (dành cho admin)
+        /// </summary>
+        [HttpPost("admin/seed-data")]
+        [AuthorizeRole(1)] // Chỉ admin
+        public async Task<IActionResult> SeedPets()
+        {
+            try
+            {
+                // Kiểm tra xem đã có pets chưa
+                var existingPetsCount = await _context.Pets.CountAsync();
+                if (existingPetsCount > 0)
+                {
+                    return BadRequest(new { message = $"Đã có {existingPetsCount} pets trong hệ thống. Không cần tạo dữ liệu mẫu." });
+                }
+
+                // Lấy danh sách customers có sẵn
+                var customers = await _context.Customers.Take(10).ToListAsync();
+                if (customers.Count == 0)
+                {
+                    return BadRequest(new { message = "Không có khách hàng nào trong hệ thống. Vui lòng tạo khách hàng trước." });
+                }
+
+                var random = new Random();
+                var samplePets = new List<Pet>();
+
+                // Tạo 20 pets mẫu
+                var petData = new[]
+                {
+                    new { Name = "Milu", Species = "Chó", Breed = "Golden Retriever", Gender = "Đực" },
+                    new { Name = "Luna", Species = "Mèo", Breed = "British Shorthair", Gender = "Cái" },
+                    new { Name = "Max", Species = "Chó", Breed = "Labrador", Gender = "Đực" },
+                    new { Name = "Bella", Species = "Mèo", Breed = "Persian", Gender = "Cái" },
+                    new { Name = "Rocky", Species = "Chó", Breed = "German Shepherd", Gender = "Đực" },
+                    new { Name = "Mimi", Species = "Mèo", Breed = "Siamese", Gender = "Cái" },
+                    new { Name = "Buddy", Species = "Chó", Breed = "Poodle", Gender = "Đực" },
+                    new { Name = "Kitty", Species = "Mèo", Breed = "Maine Coon", Gender = "Cái" },
+                    new { Name = "Charlie", Species = "Chó", Breed = "Husky", Gender = "Đực" },
+                    new { Name = "Molly", Species = "Mèo", Breed = "Ragdoll", Gender = "Cái" },
+                    new { Name = "Kiwi", Species = "Chim", Breed = "Budgerigar", Gender = "Đực" },
+                    new { Name = "Coco", Species = "Chim", Breed = "Cockatiel", Gender = "Cái" },
+                    new { Name = "Binky", Species = "Thỏ", Breed = "Holland Lop", Gender = "Đực" },
+                    new { Name = "Honey", Species = "Thỏ", Breed = "Netherland Dwarf", Gender = "Cái" },
+                    new { Name = "Pip", Species = "Hamster", Breed = "Syrian", Gender = "Đực" },
+                    new { Name = "Daisy", Species = "Chó", Breed = "Beagle", Gender = "Cái" },
+                    new { Name = "Tiger", Species = "Mèo", Breed = "Bengal", Gender = "Đực" },
+                    new { Name = "Lucky", Species = "Chó", Breed = "Shiba Inu", Gender = "Đực" },
+                    new { Name = "Princess", Species = "Mèo", Breed = "Scottish Fold", Gender = "Cái" },
+                    new { Name = "Oreo", Species = "Hamster", Breed = "Dwarf", Gender = "Đực" }
+                };
+
+                foreach (var petInfo in petData)
+                {
+                    var randomCustomer = customers[random.Next(customers.Count)];
+                    var birthDate = DateOnly.FromDateTime(DateTime.Now.AddMonths(-random.Next(6, 60))); // 6 tháng đến 5 tuổi
+
+                    var pet = new Pet
+                    {
+                        CustomerId = randomCustomer.CustomerId,
+                        Name = petInfo.Name,
+                        Species = petInfo.Species,
+                        Breed = petInfo.Breed,
+                        BirthDate = birthDate,
+                        ImageUrl = null, // Có thể thêm URL hình ảnh mẫu sau
+                        Gender = petInfo.Gender
+                    };
+
+                    samplePets.Add(pet);
+                }
+
+                _context.Pets.AddRange(samplePets);
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation($"Admin created {samplePets.Count} sample pets");
+                return Ok(new 
+                { 
+                    message = $"Đã tạo thành công {samplePets.Count} pets mẫu", 
+                    count = samplePets.Count,
+                    pets = samplePets.Select(p => new { p.Name, p.Species, p.Breed, CustomerName = customers.First(c => c.CustomerId == p.CustomerId).CustomerName })
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating sample pets");
+                return StatusCode(500, new { message = "Đã xảy ra lỗi khi tạo dữ liệu pets mẫu" });
             }
         }
 
