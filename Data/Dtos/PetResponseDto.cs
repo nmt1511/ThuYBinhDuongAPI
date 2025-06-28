@@ -9,6 +9,7 @@ namespace ThuYBinhDuongAPI.Data.Dtos
         public string? Breed { get; set; }
         public DateOnly? BirthDate { get; set; }
         public string? ImageUrl { get; set; }
+        public string? Gender { get; set; }
         
         // Thông tin bổ sung
         public int? Age { get; set; } // Tuổi tính theo năm

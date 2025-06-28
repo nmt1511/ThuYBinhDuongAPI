@@ -20,5 +20,8 @@ namespace ThuYBinhDuongAPI.Data.Dtos
         [Url(ErrorMessage = "URL hình ảnh không hợp lệ")]
         [StringLength(500, ErrorMessage = "URL hình ảnh không được vượt quá 500 ký tự")]
         public string? ImageUrl { get; set; }
+
+        [StringLength(50, ErrorMessage = "Giới tính không được vượt quá 50 ký tự")]
+        public string? Gender { get; set; }
     }
 } 

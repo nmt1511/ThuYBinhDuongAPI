@@ -51,6 +51,7 @@ namespace ThuYBinhDuongAPI.Controllers
                         Breed = p.Breed,
                         BirthDate = p.BirthDate,
                         ImageUrl = p.ImageUrl,
+                        Gender = p.Gender,
                         Age = p.BirthDate.HasValue ? CalculateAge(p.BirthDate.Value) : null,
                         CustomerName = p.Customer.CustomerName
                     })
@@ -94,6 +95,7 @@ namespace ThuYBinhDuongAPI.Controllers
                         Breed = p.Breed,
                         BirthDate = p.BirthDate,
                         ImageUrl = p.ImageUrl,
+                        Gender = p.Gender,
                         Age = p.BirthDate.HasValue ? CalculateAge(p.BirthDate.Value) : null,
                         CustomerName = p.Customer.CustomerName
                     })
@@ -150,7 +152,8 @@ namespace ThuYBinhDuongAPI.Controllers
                     Species = createPetDto.Species,
                     Breed = createPetDto.Breed,
                     BirthDate = createPetDto.BirthDate,
-                    ImageUrl = createPetDto.ImageUrl
+                    ImageUrl = createPetDto.ImageUrl,
+                    Gender = createPetDto.Gender
                 };
 
                 _context.Pets.Add(pet);
@@ -170,6 +173,7 @@ namespace ThuYBinhDuongAPI.Controllers
                     Breed = pet.Breed,
                     BirthDate = pet.BirthDate,
                     ImageUrl = pet.ImageUrl,
+                    Gender = pet.Gender,
                     Age = pet.BirthDate.HasValue ? CalculateAge(pet.BirthDate.Value) : null,
                     CustomerName = pet.Customer.CustomerName
                 };
@@ -228,6 +232,7 @@ namespace ThuYBinhDuongAPI.Controllers
                 pet.Breed = updatePetDto.Breed;
                 pet.BirthDate = updatePetDto.BirthDate;
                 pet.ImageUrl = updatePetDto.ImageUrl;
+                pet.Gender = updatePetDto.Gender;
 
                 await _context.SaveChangesAsync();
 
@@ -356,6 +361,7 @@ namespace ThuYBinhDuongAPI.Controllers
                         Breed = p.Breed,
                         BirthDate = p.BirthDate,
                         ImageUrl = p.ImageUrl,
+                        Gender = p.Gender,
                         Age = p.BirthDate.HasValue ? CalculateAge(p.BirthDate.Value) : null,
                         CustomerName = p.Customer.CustomerName
                     })
@@ -419,6 +425,7 @@ namespace ThuYBinhDuongAPI.Controllers
                         Breed = p.Breed,
                         BirthDate = p.BirthDate,
                         ImageUrl = p.ImageUrl,
+                        Gender = p.Gender,
                         Age = p.BirthDate.HasValue ? CalculateAge(p.BirthDate.Value) : null,
                         CustomerName = p.Customer.CustomerName
                     })
@@ -478,6 +485,7 @@ namespace ThuYBinhDuongAPI.Controllers
                         Breed = p.Breed,
                         BirthDate = p.BirthDate,
                         ImageUrl = p.ImageUrl,
+                        Gender = p.Gender,
                         Age = p.BirthDate.HasValue ? CalculateAge(p.BirthDate.Value) : null,
                         CustomerName = p.Customer.CustomerName
                     })
@@ -535,7 +543,8 @@ namespace ThuYBinhDuongAPI.Controllers
                     Species = createPetDto.Species,
                     Breed = createPetDto.Breed,
                     BirthDate = createPetDto.BirthDate,
-                    ImageUrl = createPetDto.ImageUrl
+                    ImageUrl = createPetDto.ImageUrl,
+                    Gender = createPetDto.Gender
                 };
 
                 _context.Pets.Add(pet);
@@ -555,6 +564,7 @@ namespace ThuYBinhDuongAPI.Controllers
                     Breed = pet.Breed,
                     BirthDate = pet.BirthDate,
                     ImageUrl = pet.ImageUrl,
+                    Gender = pet.Gender,
                     Age = pet.BirthDate.HasValue ? CalculateAge(pet.BirthDate.Value) : null,
                     CustomerName = pet.Customer.CustomerName
                 };
@@ -604,6 +614,7 @@ namespace ThuYBinhDuongAPI.Controllers
                 pet.Breed = updatePetDto.Breed;
                 pet.BirthDate = updatePetDto.BirthDate;
                 pet.ImageUrl = updatePetDto.ImageUrl;
+                pet.Gender = updatePetDto.Gender;
 
                 await _context.SaveChangesAsync();
 
@@ -720,107 +731,90 @@ namespace ThuYBinhDuongAPI.Controllers
         }
 
         /// <summary>
-        /// Tạo dữ liệu mẫu cho Pet management (dành cho admin)
+        /// Tạo dữ liệu pets mẫu (dành cho admin)
         /// </summary>
-        [HttpPost("admin/seed-customers")]
+        [HttpPost("admin/seed-data")]
         [AuthorizeRole(1)] // Chỉ admin
-        public async Task<IActionResult> SeedCustomersForPetManagement()
+        public async Task<IActionResult> SeedPets()
         {
             try
             {
-                // Kiểm tra xem đã có customers chưa
-                var existingCustomers = await _context.Customers.CountAsync();
-                if (existingCustomers > 0)
+                // Kiểm tra xem đã có pets chưa
+                var existingPetsCount = await _context.Pets.CountAsync();
+                if (existingPetsCount > 0)
                 {
-                    return BadRequest(new { message = "Đã có dữ liệu khách hàng trong hệ thống" });
+                    return BadRequest(new { message = $"Đã có {existingPetsCount} pets trong hệ thống. Không cần tạo dữ liệu mẫu." });
                 }
 
-                using var transaction = await _context.Database.BeginTransactionAsync();
-
-                try
+                // Lấy danh sách customers có sẵn
+                var customers = await _context.Customers.Take(10).ToListAsync();
+                if (customers.Count == 0)
                 {
-                    // Tạo khách hàng mẫu 1
-                    var customerUser1 = new User
-                    {
-                        Username = "customer1",
-                        Password = "hashed_password_1", // In real implementation, hash this
-                        Email = "nguyenvanan@gmail.com",
-                        PhoneNumber = "0987654321",
-                        Role = 0, // Customer role
-                        CreatedAt = DateTime.UtcNow
-                    };
-                    _context.Users.Add(customerUser1);
-                    await _context.SaveChangesAsync();
-
-                    var customer1 = new Customer
-                    {
-                        UserId = customerUser1.UserId,
-                        CustomerName = "Nguyễn Văn An",
-                        Address = "123 Đường Lê Lợi, Quận 1, TP.HCM",
-                        Gender = 0 // Male
-                    };
-                    _context.Customers.Add(customer1);
-
-                    // Tạo khách hàng mẫu 2
-                    var customerUser2 = new User
-                    {
-                        Username = "customer2",
-                        Password = "hashed_password_2", // In real implementation, hash this
-                        Email = "tranthibinh@gmail.com",
-                        PhoneNumber = "0912345678",
-                        Role = 0, // Customer role
-                        CreatedAt = DateTime.UtcNow
-                    };
-                    _context.Users.Add(customerUser2);
-                    await _context.SaveChangesAsync();
-
-                    var customer2 = new Customer
-                    {
-                        UserId = customerUser2.UserId,
-                        CustomerName = "Trần Thị Bình",
-                        Address = "456 Đường Nguyễn Huệ, Quận 3, TP.HCM",
-                        Gender = 1 // Female
-                    };
-                    _context.Customers.Add(customer2);
-
-                    // Tạo khách hàng mẫu 3
-                    var customerUser3 = new User
-                    {
-                        Username = "customer3",
-                        Password = "hashed_password_3", // In real implementation, hash this
-                        Email = "levanca@gmail.com",
-                        PhoneNumber = "0903456789",
-                        Role = 0, // Customer role
-                        CreatedAt = DateTime.UtcNow
-                    };
-                    _context.Users.Add(customerUser3);
-                    await _context.SaveChangesAsync();
-
-                    var customer3 = new Customer
-                    {
-                        UserId = customerUser3.UserId,
-                        CustomerName = "Lê Văn Ca",
-                        Address = "789 Đường Võ Văn Tần, Quận 5, TP.HCM",
-                        Gender = 0 // Male
-                    };
-                    _context.Customers.Add(customer3);
-
-                    await _context.SaveChangesAsync();
-                    await transaction.CommitAsync();
-
-                    _logger.LogInformation("Admin created seed customers for pet management");
-                    return Ok(new { message = "Đã tạo dữ liệu khách hàng mẫu thành công", count = 3 });
+                    return BadRequest(new { message = "Không có khách hàng nào trong hệ thống. Vui lòng tạo khách hàng trước." });
                 }
-                catch (Exception ex)
+
+                var random = new Random();
+                var samplePets = new List<Pet>();
+
+                // Tạo 20 pets mẫu
+                var petData = new[]
                 {
-                    await transaction.RollbackAsync();
-                    throw ex;
+                    new { Name = "Milu", Species = "Chó", Breed = "Golden Retriever", Gender = "Đực" },
+                    new { Name = "Luna", Species = "Mèo", Breed = "British Shorthair", Gender = "Cái" },
+                    new { Name = "Max", Species = "Chó", Breed = "Labrador", Gender = "Đực" },
+                    new { Name = "Bella", Species = "Mèo", Breed = "Persian", Gender = "Cái" },
+                    new { Name = "Rocky", Species = "Chó", Breed = "German Shepherd", Gender = "Đực" },
+                    new { Name = "Mimi", Species = "Mèo", Breed = "Siamese", Gender = "Cái" },
+                    new { Name = "Buddy", Species = "Chó", Breed = "Poodle", Gender = "Đực" },
+                    new { Name = "Kitty", Species = "Mèo", Breed = "Maine Coon", Gender = "Cái" },
+                    new { Name = "Charlie", Species = "Chó", Breed = "Husky", Gender = "Đực" },
+                    new { Name = "Molly", Species = "Mèo", Breed = "Ragdoll", Gender = "Cái" },
+                    new { Name = "Kiwi", Species = "Chim", Breed = "Budgerigar", Gender = "Đực" },
+                    new { Name = "Coco", Species = "Chim", Breed = "Cockatiel", Gender = "Cái" },
+                    new { Name = "Binky", Species = "Thỏ", Breed = "Holland Lop", Gender = "Đực" },
+                    new { Name = "Honey", Species = "Thỏ", Breed = "Netherland Dwarf", Gender = "Cái" },
+                    new { Name = "Pip", Species = "Hamster", Breed = "Syrian", Gender = "Đực" },
+                    new { Name = "Daisy", Species = "Chó", Breed = "Beagle", Gender = "Cái" },
+                    new { Name = "Tiger", Species = "Mèo", Breed = "Bengal", Gender = "Đực" },
+                    new { Name = "Lucky", Species = "Chó", Breed = "Shiba Inu", Gender = "Đực" },
+                    new { Name = "Princess", Species = "Mèo", Breed = "Scottish Fold", Gender = "Cái" },
+                    new { Name = "Oreo", Species = "Hamster", Breed = "Dwarf", Gender = "Đực" }
+                };
+
+                foreach (var petInfo in petData)
+                {
+                    var randomCustomer = customers[random.Next(customers.Count)];
+                    var birthDate = DateOnly.FromDateTime(DateTime.Now.AddMonths(-random.Next(6, 60))); // 6 tháng đến 5 tuổi
+
+                    var pet = new Pet
+                    {
+                        CustomerId = randomCustomer.CustomerId,
+                        Name = petInfo.Name,
+                        Species = petInfo.Species,
+                        Breed = petInfo.Breed,
+                        BirthDate = birthDate,
+                        ImageUrl = null, // Có thể thêm URL hình ảnh mẫu sau
+                        Gender = petInfo.Gender
+                    };
+
+                    samplePets.Add(pet);
                 }
+
+                _context.Pets.AddRange(samplePets);
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation($"Admin created {samplePets.Count} sample pets");
+                return Ok(new 
+                { 
+                    message = $"Đã tạo thành công {samplePets.Count} pets mẫu", 
+                    count = samplePets.Count,
+                    pets = samplePets.Select(p => new { p.Name, p.Species, p.Breed, CustomerName = customers.First(c => c.CustomerId == p.CustomerId).CustomerName })
+                });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error creating seed customers for pet management");
-                return StatusCode(500, new { message = "Đã xảy ra lỗi khi tạo dữ liệu khách hàng mẫu" });
+                _logger.LogError(ex, "Error creating sample pets");
+                return StatusCode(500, new { message = "Đã xảy ra lỗi khi tạo dữ liệu pets mẫu" });
             }
         }
 

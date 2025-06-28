@@ -206,6 +206,9 @@ public partial class ThuybinhduongContext : DbContext
                 .HasMaxLength(100)
                 .HasColumnName("breed");
             entity.Property(e => e.CustomerId).HasColumnName("customer_id");
+            entity.Property(e => e.Gender)
+                .HasMaxLength(50)
+                .HasColumnName("gender");
             entity.Property(e => e.ImageUrl)
                 .HasMaxLength(500)
                 .HasColumnName("image_url");
