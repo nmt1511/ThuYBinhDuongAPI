@@ -157,20 +157,12 @@ namespace ThuYBinhDuongAPI.Controllers
                 var pet = new Pet
                 {
                     CustomerId = customerId.Value,
-<<<<<<< HEAD
                     Name = createPetDto.Name.Trim(),
                     Species = createPetDto.Species.Trim(),
                     Breed = !string.IsNullOrWhiteSpace(createPetDto.Breed) ? createPetDto.Breed.Trim() : null,
                     BirthDate = createPetDto.BirthDate ?? ParseBirthDate(createPetDto.BirthDateString),
-                    ImageUrl = !string.IsNullOrWhiteSpace(createPetDto.ImageUrl) ? createPetDto.ImageUrl.Trim() : null
-=======
-                    Name = createPetDto.Name,
-                    Species = createPetDto.Species,
-                    Breed = createPetDto.Breed,
-                    BirthDate = createPetDto.BirthDate,
-                    ImageUrl = createPetDto.ImageUrl,
-                    Gender = createPetDto.Gender
->>>>>>> 0f9bce9347b09d5ffa687b7ce2372ec37d5de8d5
+                    ImageUrl = !string.IsNullOrWhiteSpace(createPetDto.ImageUrl) ? createPetDto.ImageUrl.Trim() : null,
+                    Gender = !string.IsNullOrWhiteSpace(createPetDto.Gender) ? createPetDto.Gender.Trim() : null
                 };
 
                 _context.Pets.Add(pet);
@@ -254,20 +246,12 @@ namespace ThuYBinhDuongAPI.Controllers
                 }
 
                 // Cập nhật thông tin
-<<<<<<< HEAD
                 pet.Name = updatePetDto.Name.Trim();
                 pet.Species = updatePetDto.Species.Trim();
                 pet.Breed = !string.IsNullOrWhiteSpace(updatePetDto.Breed) ? updatePetDto.Breed.Trim() : null;
                 pet.BirthDate = updatePetDto.BirthDate ?? ParseBirthDate(updatePetDto.BirthDateString);
                 pet.ImageUrl = !string.IsNullOrWhiteSpace(updatePetDto.ImageUrl) ? updatePetDto.ImageUrl.Trim() : null;
-=======
-                pet.Name = updatePetDto.Name;
-                pet.Species = updatePetDto.Species;
-                pet.Breed = updatePetDto.Breed;
-                pet.BirthDate = updatePetDto.BirthDate;
-                pet.ImageUrl = updatePetDto.ImageUrl;
-                pet.Gender = updatePetDto.Gender;
->>>>>>> 0f9bce9347b09d5ffa687b7ce2372ec37d5de8d5
+                pet.Gender = !string.IsNullOrWhiteSpace(updatePetDto.Gender) ? updatePetDto.Gender.Trim() : null;
 
                 await _context.SaveChangesAsync();
 
@@ -588,20 +572,12 @@ namespace ThuYBinhDuongAPI.Controllers
                 var pet = new Pet
                 {
                     CustomerId = customerId,
-<<<<<<< HEAD
                     Name = createPetDto.Name.Trim(),
                     Species = createPetDto.Species.Trim(),
                     Breed = !string.IsNullOrWhiteSpace(createPetDto.Breed) ? createPetDto.Breed.Trim() : null,
                     BirthDate = createPetDto.BirthDate ?? ParseBirthDate(createPetDto.BirthDateString),
-                    ImageUrl = !string.IsNullOrWhiteSpace(createPetDto.ImageUrl) ? createPetDto.ImageUrl.Trim() : null
-=======
-                    Name = createPetDto.Name,
-                    Species = createPetDto.Species,
-                    Breed = createPetDto.Breed,
-                    BirthDate = createPetDto.BirthDate,
-                    ImageUrl = createPetDto.ImageUrl,
-                    Gender = createPetDto.Gender
->>>>>>> 0f9bce9347b09d5ffa687b7ce2372ec37d5de8d5
+                    ImageUrl = !string.IsNullOrWhiteSpace(createPetDto.ImageUrl) ? createPetDto.ImageUrl.Trim() : null,
+                    Gender = !string.IsNullOrWhiteSpace(createPetDto.Gender) ? createPetDto.Gender.Trim() : null
                 };
 
                 _context.Pets.Add(pet);
@@ -666,20 +642,12 @@ namespace ThuYBinhDuongAPI.Controllers
                 }
 
                 // Cập nhật thông tin
-<<<<<<< HEAD
                 pet.Name = updatePetDto.Name.Trim();
                 pet.Species = updatePetDto.Species.Trim();
                 pet.Breed = !string.IsNullOrWhiteSpace(updatePetDto.Breed) ? updatePetDto.Breed.Trim() : null;
                 pet.BirthDate = updatePetDto.BirthDate ?? ParseBirthDate(updatePetDto.BirthDateString);
                 pet.ImageUrl = !string.IsNullOrWhiteSpace(updatePetDto.ImageUrl) ? updatePetDto.ImageUrl.Trim() : null;
-=======
-                pet.Name = updatePetDto.Name;
-                pet.Species = updatePetDto.Species;
-                pet.Breed = updatePetDto.Breed;
-                pet.BirthDate = updatePetDto.BirthDate;
-                pet.ImageUrl = updatePetDto.ImageUrl;
-                pet.Gender = updatePetDto.Gender;
->>>>>>> 0f9bce9347b09d5ffa687b7ce2372ec37d5de8d5
+                pet.Gender = !string.IsNullOrWhiteSpace(updatePetDto.Gender) ? updatePetDto.Gender.Trim() : null;
 
                 await _context.SaveChangesAsync();
 
