@@ -123,14 +123,22 @@ namespace ThuYBinhDuongAPI.Controllers
         {
             try
             {
+                _logger.LogInformation("Creating pet with data: {@CreatePetDto}", createPetDto);
+
                 if (!ModelState.IsValid)
                 {
-                    return BadRequest(ModelState);
+                    var errors = ModelState.Values
+                        .SelectMany(v => v.Errors)
+                        .Select(e => e.ErrorMessage)
+                        .ToList();
+                    _logger.LogWarning("Validation errors: {@Errors}", errors);
+                    return BadRequest(new { message = "Dữ liệu không hợp lệ", errors = errors });
                 }
 
                 var customerId = await GetCurrentCustomerIdAsync();
                 if (customerId == null)
                 {
+                    _logger.LogWarning("Customer not found for user");
                     return BadRequest(new { message = "Không tìm thấy thông tin khách hàng" });
                 }
 
@@ -140,17 +148,18 @@ namespace ThuYBinhDuongAPI.Controllers
 
                 if (existingPet)
                 {
+                    _logger.LogWarning("Pet name already exists for customer {CustomerId}: {PetName}", customerId, createPetDto.Name);
                     return BadRequest(new { message = "Bạn đã có thú cưng với tên này" });
                 }
 
                 var pet = new Pet
                 {
                     CustomerId = customerId.Value,
-                    Name = createPetDto.Name,
-                    Species = createPetDto.Species,
-                    Breed = createPetDto.Breed,
-                    BirthDate = createPetDto.BirthDate,
-                    ImageUrl = createPetDto.ImageUrl
+                    Name = createPetDto.Name.Trim(),
+                    Species = createPetDto.Species.Trim(),
+                    Breed = !string.IsNullOrWhiteSpace(createPetDto.Breed) ? createPetDto.Breed.Trim() : null,
+                    BirthDate = createPetDto.BirthDate ?? ParseBirthDate(createPetDto.BirthDateString),
+                    ImageUrl = !string.IsNullOrWhiteSpace(createPetDto.ImageUrl) ? createPetDto.ImageUrl.Trim() : null
                 };
 
                 _context.Pets.Add(pet);
@@ -174,12 +183,12 @@ namespace ThuYBinhDuongAPI.Controllers
                     CustomerName = pet.Customer.CustomerName
                 };
 
-                _logger.LogInformation($"Customer {customerId} created pet {pet.PetId} - {pet.Name}");
+                _logger.LogInformation("Successfully created pet {PetId} - {PetName} for customer {CustomerId}", pet.PetId, pet.Name, customerId);
                 return CreatedAtAction(nameof(GetPet), new { id = pet.PetId }, response);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error creating pet");
+                _logger.LogError(ex, "Error creating pet for customer. Data: {@CreatePetDto}", createPetDto);
                 return StatusCode(500, new { message = "Đã xảy ra lỗi khi thêm thú cưng" });
             }
         }
@@ -193,14 +202,22 @@ namespace ThuYBinhDuongAPI.Controllers
         {
             try
             {
+                _logger.LogInformation("Updating pet {PetId} with data: {@UpdatePetDto}", id, updatePetDto);
+
                 if (!ModelState.IsValid)
                 {
-                    return BadRequest(ModelState);
+                    var errors = ModelState.Values
+                        .SelectMany(v => v.Errors)
+                        .Select(e => e.ErrorMessage)
+                        .ToList();
+                    _logger.LogWarning("Validation errors for pet {PetId}: {@Errors}", id, errors);
+                    return BadRequest(new { message = "Dữ liệu không hợp lệ", errors = errors });
                 }
 
                 var customerId = await GetCurrentCustomerIdAsync();
                 if (customerId == null)
                 {
+                    _logger.LogWarning("Customer not found for user");
                     return BadRequest(new { message = "Không tìm thấy thông tin khách hàng" });
                 }
 
@@ -210,6 +227,7 @@ namespace ThuYBinhDuongAPI.Controllers
 
                 if (pet == null)
                 {
+                    _logger.LogWarning("Pet {PetId} not found or customer {CustomerId} has no access", id, customerId);
                     return NotFound(new { message = "Không tìm thấy thú cưng hoặc bạn không có quyền chỉnh sửa" });
                 }
 
@@ -219,24 +237,25 @@ namespace ThuYBinhDuongAPI.Controllers
 
                 if (existingPet)
                 {
+                    _logger.LogWarning("Pet name already exists for customer {CustomerId}: {PetName}", customerId, updatePetDto.Name);
                     return BadRequest(new { message = "Bạn đã có thú cưng khác với tên này" });
                 }
 
                 // Cập nhật thông tin
-                pet.Name = updatePetDto.Name;
-                pet.Species = updatePetDto.Species;
-                pet.Breed = updatePetDto.Breed;
-                pet.BirthDate = updatePetDto.BirthDate;
-                pet.ImageUrl = updatePetDto.ImageUrl;
+                pet.Name = updatePetDto.Name.Trim();
+                pet.Species = updatePetDto.Species.Trim();
+                pet.Breed = !string.IsNullOrWhiteSpace(updatePetDto.Breed) ? updatePetDto.Breed.Trim() : null;
+                pet.BirthDate = updatePetDto.BirthDate ?? ParseBirthDate(updatePetDto.BirthDateString);
+                pet.ImageUrl = !string.IsNullOrWhiteSpace(updatePetDto.ImageUrl) ? updatePetDto.ImageUrl.Trim() : null;
 
                 await _context.SaveChangesAsync();
 
-                _logger.LogInformation($"Customer {customerId} updated pet {id} - {pet.Name}");
+                _logger.LogInformation("Successfully updated pet {PetId} - {PetName} for customer {CustomerId}", id, pet.Name, customerId);
                 return Ok(new { message = "Cập nhật thông tin thú cưng thành công" });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error updating pet {PetId}", id);
+                _logger.LogError(ex, "Error updating pet {PetId}. Data: {@UpdatePetDto}", id, updatePetDto);
                 return StatusCode(500, new { message = "Đã xảy ra lỗi khi cập nhật thông tin thú cưng" });
             }
         }
@@ -322,6 +341,20 @@ namespace ThuYBinhDuongAPI.Controllers
             }
             
             return age;
+        }
+
+        /// <summary>
+        /// Parse ngày sinh từ string format (YYYY-MM-DD)
+        /// </summary>
+        private static DateOnly? ParseBirthDate(string? birthDateString)
+        {
+            if (string.IsNullOrWhiteSpace(birthDateString))
+                return null;
+
+            if (DateOnly.TryParse(birthDateString, out DateOnly birthDate))
+                return birthDate;
+
+            return null;
         }
 
         #region Admin Methods
@@ -531,11 +564,11 @@ namespace ThuYBinhDuongAPI.Controllers
                 var pet = new Pet
                 {
                     CustomerId = customerId,
-                    Name = createPetDto.Name,
-                    Species = createPetDto.Species,
-                    Breed = createPetDto.Breed,
-                    BirthDate = createPetDto.BirthDate,
-                    ImageUrl = createPetDto.ImageUrl
+                    Name = createPetDto.Name.Trim(),
+                    Species = createPetDto.Species.Trim(),
+                    Breed = !string.IsNullOrWhiteSpace(createPetDto.Breed) ? createPetDto.Breed.Trim() : null,
+                    BirthDate = createPetDto.BirthDate ?? ParseBirthDate(createPetDto.BirthDateString),
+                    ImageUrl = !string.IsNullOrWhiteSpace(createPetDto.ImageUrl) ? createPetDto.ImageUrl.Trim() : null
                 };
 
                 _context.Pets.Add(pet);
@@ -599,11 +632,11 @@ namespace ThuYBinhDuongAPI.Controllers
                 }
 
                 // Cập nhật thông tin
-                pet.Name = updatePetDto.Name;
-                pet.Species = updatePetDto.Species;
-                pet.Breed = updatePetDto.Breed;
-                pet.BirthDate = updatePetDto.BirthDate;
-                pet.ImageUrl = updatePetDto.ImageUrl;
+                pet.Name = updatePetDto.Name.Trim();
+                pet.Species = updatePetDto.Species.Trim();
+                pet.Breed = !string.IsNullOrWhiteSpace(updatePetDto.Breed) ? updatePetDto.Breed.Trim() : null;
+                pet.BirthDate = updatePetDto.BirthDate ?? ParseBirthDate(updatePetDto.BirthDateString);
+                pet.ImageUrl = !string.IsNullOrWhiteSpace(updatePetDto.ImageUrl) ? updatePetDto.ImageUrl.Trim() : null;
 
                 await _context.SaveChangesAsync();
 
