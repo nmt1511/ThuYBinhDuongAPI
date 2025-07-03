@@ -71,6 +71,55 @@ namespace ThuYBinhDuongAPI.Controllers
         }
 
         /// <summary>
+        /// Lấy danh sách tin tức theo tag (cho tất cả người dùng)
+        /// </summary>
+        [HttpGet("by-tag")]
+        public async Task<ActionResult<IEnumerable<NewsResponseDto>>> GetNewsByTag([FromQuery] string tag, [FromQuery] int page = 1, [FromQuery] int limit = 10)
+        {
+            if (string.IsNullOrWhiteSpace(tag))
+                return BadRequest(new { message = "Tag không được để trống" });
+
+            var skip = (page - 1) * limit;
+            var tagLower = tag.ToLower().Trim();
+
+            var newsQuery = await _context.News
+                .Where(n => n.Tags != null && n.Tags.ToLower().Contains(tagLower))
+                .OrderByDescending(n => n.CreatedAt)
+                .Skip(skip)
+                .Take(limit)
+                .ToListAsync();
+
+            var news = newsQuery.Select(n => new NewsResponseDto
+            {
+                NewsId = n.NewsId,
+                Title = n.Title,
+                Content = n.Content,
+                ImageUrl = n.ImageUrl,
+                Tags = n.Tags,
+                CreatedAt = n.CreatedAt,
+                Summary = !string.IsNullOrEmpty(n.Content) && n.Content.Length > 200 ? n.Content.Substring(0, 200) + "..." : n.Content,
+                TagList = !string.IsNullOrEmpty(n.Tags) ? n.Tags.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(t => t.Trim()).ToList() : new List<string>()
+            }).ToList();
+
+            var totalNews = await _context.News
+                .Where(n => n.Tags != null && n.Tags.ToLower().Contains(tagLower))
+                .CountAsync();
+
+            return Ok(new
+            {
+                news = news,
+                tag = tag,
+                pagination = new
+                {
+                    page = page,
+                    limit = limit,
+                    total = totalNews,
+                    totalPages = (int)Math.Ceiling((double)totalNews / limit)
+                }
+            });
+        }
+
+        /// <summary>
         /// Tìm kiếm tin tức công khai
         /// </summary>
         [HttpGet("search")]
