@@ -23,7 +23,7 @@ namespace ThuYBinhDuongAPI.Controllers
         /// Lấy danh sách dịch vụ với tìm kiếm (cho dropdown và danh sách)
         /// </summary>
         [HttpGet]
-        [Authorize] // Cần đăng nhập để xem dịch vụ
+        [AllowAnonymous] // Ai cũng xem được dịch vụ
         public async Task<ActionResult<IEnumerable<ServiceResponseDto>>> GetServices(
             [FromQuery] string? search = null,
             [FromQuery] string? category = null,
@@ -101,7 +101,7 @@ namespace ThuYBinhDuongAPI.Controllers
         /// Lấy danh sách dịch vụ đơn giản cho dropdown (không phân trang)
         /// </summary>
         [HttpGet("dropdown")]
-        [Authorize]
+        [AllowAnonymous]
         public async Task<ActionResult<IEnumerable<ServiceResponseDto>>> GetServicesForDropdown(
             [FromQuery] string? search = null)
         {
@@ -154,7 +154,7 @@ namespace ThuYBinhDuongAPI.Controllers
         /// Lấy thông tin chi tiết một dịch vụ
         /// </summary>
         [HttpGet("{id}")]
-        [Authorize]
+        [AllowAnonymous]
         public async Task<ActionResult<ServiceResponseDto>> GetService(int id)
         {
             try
