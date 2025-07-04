@@ -132,7 +132,7 @@ namespace ThuYBinhDuongAPI.Controllers
         /// </summary>
         [HttpGet("{id}/medical-history")]
         [AuthorizeRole(0)] // Chỉ khách hàng
-        public async Task<ActionResult<IEnumerable<MedicalHistoryDto>>> GetMedicalHistory(int id)
+        public async Task<ActionResult> GetMedicalHistory(int id, [FromQuery] int page = 1, [FromQuery] int limit = 5)
         {
             try
             {
@@ -152,9 +152,17 @@ namespace ThuYBinhDuongAPI.Controllers
                     return NotFound(new { message = "Không tìm thấy thú cưng hoặc bạn không có quyền truy cập" });
                 }
 
-                var histories = await _context.MedicalHistories
+                var query = _context.MedicalHistories
                     .Where(mh => mh.PetId == id)
-                    .OrderByDescending(mh => mh.RecordDate)
+                    .OrderByDescending(mh => mh.RecordDate);
+
+                var total = await query.CountAsync();
+                var totalPages = (int)Math.Ceiling((double)total / limit);
+                var skip = (page - 1) * limit;
+
+                var histories = await query
+                    .Skip(skip)
+                    .Take(limit)
                     .Select(mh => new MedicalHistoryDto
                     {
                         HistoryId = mh.HistoryId,
@@ -166,7 +174,17 @@ namespace ThuYBinhDuongAPI.Controllers
                     })
                     .ToListAsync();
 
-                return Ok(histories);
+                return Ok(new
+                {
+                    histories = histories,
+                    pagination = new
+                    {
+                        page = page,
+                        limit = limit,
+                        total = total,
+                        totalPages = totalPages
+                    }
+                });
             }
             catch (Exception ex)
             {
