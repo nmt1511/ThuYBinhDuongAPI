@@ -548,6 +548,51 @@ namespace ThuYBinhDuongAPI.Controllers
          }
 
         /// <summary>
+        /// Đổi mật khẩu cho user hiện tại
+        /// </summary>
+        [HttpPost("change-password")]
+        [Authorize]
+        public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordDto dto)
+        {
+            try
+            {
+                var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                if (!int.TryParse(userIdClaim, out int userId))
+                {
+                    return Unauthorized(new { message = "Token không hợp lệ" });
+                }
+
+                var user = await _context.Users.FindAsync(userId);
+                if (user == null)
+                {
+                    return NotFound(new { message = "Không tìm thấy người dùng" });
+                }
+
+                // Kiểm tra mật khẩu cũ
+                if (!VerifyPassword(dto.OldPassword, user.Password))
+                {
+                    return BadRequest(new { message = "Mật khẩu cũ không đúng" });
+                }
+
+                // Kiểm tra mật khẩu mới khác mật khẩu cũ
+                if (dto.OldPassword == dto.NewPassword)
+                {
+                    return BadRequest(new { message = "Mật khẩu mới phải khác mật khẩu cũ" });
+                }
+
+                // Cập nhật mật khẩu mới
+                user.Password = HashPassword(dto.NewPassword);
+                await _context.SaveChangesAsync();
+                return Ok(new { message = "Đổi mật khẩu thành công" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error changing password for user");
+                return StatusCode(500, new { message = "Đã xảy ra lỗi khi đổi mật khẩu" });
+            }
+        }
+
+        /// <summary>
         /// Cập nhật thông tin cá nhân của khách hàng (Customer)
         /// </summary>
         [HttpPut("update-customer")]

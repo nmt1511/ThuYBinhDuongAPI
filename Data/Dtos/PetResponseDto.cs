@@ -14,5 +14,6 @@ namespace ThuYBinhDuongAPI.Data.Dtos
         // Thông tin bổ sung
         public int? Age { get; set; } // Tuổi tính theo năm
         public string? CustomerName { get; set; } // Tên chủ thú cưng
+        public List<MedicalHistoryDto>? MedicalHistories { get; set; }
     }
 } 

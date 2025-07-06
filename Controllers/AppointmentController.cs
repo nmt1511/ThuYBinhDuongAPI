@@ -31,7 +31,7 @@ namespace ThuYBinhDuongAPI.Controllers
         /// </summary>
         [HttpGet]
         [AuthorizeRole(0)] // Chỉ khách hàng
-        public async Task<ActionResult<IEnumerable<AppointmentResponseDto>>> GetMyAppointments()
+        public async Task<ActionResult> GetMyAppointments([FromQuery] int page = 1, [FromQuery] int limit = 5)
         {
             try
             {
@@ -41,12 +41,24 @@ namespace ThuYBinhDuongAPI.Controllers
                     return BadRequest(new { message = "Không tìm thấy thông tin khách hàng" });
                 }
 
-                var appointments = await _context.Appointments
+                var query = _context.Appointments
                     .Include(a => a.Pet)
                         .ThenInclude(p => p.Customer)
                     .Include(a => a.Doctor)
                     .Include(a => a.Service)
-                    .Where(a => a.Pet.CustomerId == customerId.Value)
+                    .Where(a => a.Pet.CustomerId == customerId.Value);
+
+                // Sắp xếp: chờ xác nhận trước, rồi đến ngày gần nhất
+                query = query
+                    .OrderBy(a => a.Status == 0 ? 0 : 1)
+                    .ThenBy(a => a.AppointmentDate)
+                    .ThenBy(a => a.AppointmentTime);
+
+                var total = await query.CountAsync();
+                var skip = (page - 1) * limit;
+                var appointments = await query
+                    .Skip(skip)
+                    .Take(limit)
                     .Select(a => new AppointmentResponseDto
                     {
                         AppointmentId = a.AppointmentId,
@@ -69,11 +81,20 @@ namespace ThuYBinhDuongAPI.Controllers
                         StatusText = GetStatusText(a.Status),
                         CanCancel = a.Status == 0 // Chỉ có thể hủy khi status = 0 (chờ xác nhận)
                     })
-                    .OrderByDescending(a => a.CreatedAt)
                     .ToListAsync();
 
-                _logger.LogInformation($"Customer {customerId} retrieved {appointments.Count} appointments");
-                return Ok(appointments);
+                _logger.LogInformation($"Customer {customerId} retrieved {appointments.Count} appointments (page {page})");
+                return Ok(new
+                {
+                    appointments = appointments,
+                    pagination = new
+                    {
+                        page = page,
+                        limit = limit,
+                        total = total,
+                        totalPages = (int)Math.Ceiling((double)total / limit)
+                    }
+                });
             }
             catch (Exception ex)
             {

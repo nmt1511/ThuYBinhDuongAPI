@@ -85,20 +85,8 @@ namespace ThuYBinhDuongAPI.Controllers
 
                 var pet = await _context.Pets
                     .Include(p => p.Customer)
+                    .Include(p => p.MedicalHistories)
                     .Where(p => p.PetId == id && p.CustomerId == customerId.Value)
-                    .Select(p => new PetResponseDto
-                    {
-                        PetId = p.PetId,
-                        CustomerId = p.CustomerId,
-                        Name = p.Name,
-                        Species = p.Species,
-                        Breed = p.Breed,
-                        BirthDate = p.BirthDate,
-                        ImageUrl = p.ImageUrl,
-                        Gender = p.Gender,
-                        Age = p.BirthDate.HasValue ? CalculateAge(p.BirthDate.Value) : null,
-                        CustomerName = p.Customer.CustomerName
-                    })
                     .FirstOrDefaultAsync();
 
                 if (pet == null)
@@ -106,13 +94,102 @@ namespace ThuYBinhDuongAPI.Controllers
                     return NotFound(new { message = "Không tìm thấy thú cưng hoặc bạn không có quyền truy cập" });
                 }
 
+                var petDto = new PetResponseDto
+                {
+                    PetId = pet.PetId,
+                    CustomerId = pet.CustomerId,
+                    Name = pet.Name,
+                    Species = pet.Species,
+                    Breed = pet.Breed,
+                    BirthDate = pet.BirthDate,
+                    ImageUrl = pet.ImageUrl,
+                    Gender = pet.Gender,
+                    Age = pet.BirthDate.HasValue ? CalculateAge(pet.BirthDate.Value) : null,
+                    CustomerName = pet.Customer.CustomerName,
+                    MedicalHistories = pet.MedicalHistories?.OrderByDescending(mh => mh.RecordDate).Select(mh => new MedicalHistoryDto
+                    {
+                        HistoryId = mh.HistoryId,
+                        PetId = mh.PetId,
+                        RecordDate = mh.RecordDate,
+                        Description = mh.Description,
+                        Treatment = mh.Treatment,
+                        Notes = mh.Notes
+                    }).ToList()
+                };
+
                 _logger.LogInformation($"Customer {customerId} retrieved pet {id}");
-                return Ok(pet);
+                return Ok(petDto);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error retrieving pet {PetId}", id);
                 return StatusCode(500, new { message = "Đã xảy ra lỗi khi lấy thông tin thú cưng" });
+            }
+        }
+
+        /// <summary>
+        /// Lấy danh sách hồ sơ bệnh án của thú cưng (chỉ khách hàng sở hữu thú cưng đó mới xem được)
+        /// </summary>
+        [HttpGet("{id}/medical-history")]
+        [AuthorizeRole(0)] // Chỉ khách hàng
+        public async Task<ActionResult> GetMedicalHistory(int id, [FromQuery] int page = 1, [FromQuery] int limit = 5)
+        {
+            try
+            {
+                var customerId = await GetCurrentCustomerIdAsync();
+                if (customerId == null)
+                {
+                    return BadRequest(new { message = "Không tìm thấy thông tin khách hàng" });
+                }
+
+                // Kiểm tra quyền truy cập thú cưng
+                var pet = await _context.Pets
+                    .Where(p => p.PetId == id && p.CustomerId == customerId.Value)
+                    .FirstOrDefaultAsync();
+
+                if (pet == null)
+                {
+                    return NotFound(new { message = "Không tìm thấy thú cưng hoặc bạn không có quyền truy cập" });
+                }
+
+                var query = _context.MedicalHistories
+                    .Where(mh => mh.PetId == id)
+                    .OrderByDescending(mh => mh.RecordDate);
+
+                var total = await query.CountAsync();
+                var totalPages = (int)Math.Ceiling((double)total / limit);
+                var skip = (page - 1) * limit;
+
+                var histories = await query
+                    .Skip(skip)
+                    .Take(limit)
+                    .Select(mh => new MedicalHistoryDto
+                    {
+                        HistoryId = mh.HistoryId,
+                        PetId = mh.PetId,
+                        RecordDate = mh.RecordDate,
+                        Description = mh.Description,
+                        Treatment = mh.Treatment,
+                        Notes = mh.Notes
+                    })
+                    .ToListAsync();
+
+                return Ok(new
+                {
+                    histories = histories,
+                    pagination = new
+                    {
+                        page = page,
+                        limit = limit,
+                        total = total,
+                        totalPages = totalPages
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving medical history for pet {PetId}", id);
+                return StatusCode(500, new { message = "Đã xảy ra lỗi khi lấy hồ sơ bệnh án" });
             }
         }
 
