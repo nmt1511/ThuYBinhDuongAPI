@@ -363,6 +363,87 @@ public class DashboardController : ControllerBase
         }
     }
 
+    // GET: api/Dashboard/simple
+    [HttpGet("simple")]
+    [AuthorizeRole(1)] // Admin only
+    public async Task<ActionResult<SimpleDashboardDto>> GetSimpleDashboard()
+    {
+        try
+        {
+            // Lấy thống kê lịch hẹn hôm nay
+            var today = DateOnly.FromDateTime(DateTime.Today);
+            
+            var todayAppointments = await _context.Appointments
+                .Where(a => a.AppointmentDate == today)
+                .Include(a => a.Pet)
+                    .ThenInclude(p => p.Customer)
+                .Include(a => a.Service)
+                .Include(a => a.Doctor)
+                .OrderBy(a => a.AppointmentTime)
+                .ToListAsync();
+
+            var todayStats = new TodayStatsDto
+            {
+                TotalAppointments = todayAppointments.Count,
+                PendingAppointments = todayAppointments.Count(a => a.Status == 0),
+                ConfirmedAppointments = todayAppointments.Count(a => a.Status == 1),
+                CompletedAppointments = todayAppointments.Count(a => a.Status == 2),
+                CancelledAppointments = todayAppointments.Count(a => a.Status == 3)
+            };
+
+            // Lấy chi tiết lịch hẹn hôm nay
+            var todayAppointmentDetails = todayAppointments.Select(a => new AppointmentDetailDto
+            {
+                AppointmentId = a.AppointmentId,
+                Time = a.AppointmentTime,
+                CustomerName = a.Pet?.Customer?.CustomerName ?? "Unknown",
+                PetName = a.Pet?.Name ?? "Unknown",
+                ServiceName = a.Service?.Name ?? "Unknown",
+                DoctorName = a.Doctor?.FullName ?? "Unknown",
+                Status = a.Status ?? 0,
+                StatusText = GetStatusText(a.Status)
+            }).ToList();
+
+            // Lấy thống kê tỉ lệ hoàn thành và hủy (trong 30 ngày gần nhất)
+            var lastMonth = DateOnly.FromDateTime(DateTime.Today.AddDays(-30));
+            var recentAppointments = await _context.Appointments
+                .Where(a => a.AppointmentDate >= lastMonth && a.AppointmentDate <= today)
+                .ToListAsync();
+
+            var totalRecentAppointments = recentAppointments.Count;
+            var completedRecentAppointments = recentAppointments.Count(a => a.Status == 2);
+            var cancelledRecentAppointments = recentAppointments.Count(a => a.Status == 3);
+
+            var completionStats = new CompletionStatsDto
+            {
+                TotalAppointments = totalRecentAppointments,
+                CompletedAppointments = completedRecentAppointments,
+                CancelledAppointments = cancelledRecentAppointments,
+                CompletionRate = totalRecentAppointments > 0 
+                    ? Math.Round((double)completedRecentAppointments / totalRecentAppointments * 100, 2) 
+                    : 0,
+                CancellationRate = totalRecentAppointments > 0 
+                    ? Math.Round((double)cancelledRecentAppointments / totalRecentAppointments * 100, 2) 
+                    : 0
+            };
+
+            var result = new SimpleDashboardDto
+            {
+                TodayStats = todayStats,
+                TodayAppointments = todayAppointmentDetails,
+                CompletionStats = completionStats
+            };
+
+            _logger.LogInformation("Successfully retrieved simple dashboard data");
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting simple dashboard data");
+            return StatusCode(500, new { message = "Lỗi server khi lấy dữ liệu thống kê", error = ex.Message });
+        }
+    }
+
     private async Task<List<TimeSeriesDataDto>> GetTimeSeriesData(DateTime startDate, DateTime endDate, string period)
     {
         var appointments = await _context.Appointments

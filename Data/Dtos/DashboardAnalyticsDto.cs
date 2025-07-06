@@ -83,4 +83,41 @@ public class ChangeDataDto
     public int AppointmentChange { get; set; }
     public double CompletionRateChange { get; set; }
     public double AppointmentChangePercent { get; set; }
+}
+
+public class SimpleDashboardDto
+{
+    public TodayStatsDto TodayStats { get; set; } = new();
+    public List<AppointmentDetailDto> TodayAppointments { get; set; } = new();
+    public CompletionStatsDto CompletionStats { get; set; } = new();
+}
+
+public class TodayStatsDto
+{
+    public int TotalAppointments { get; set; }
+    public int PendingAppointments { get; set; }
+    public int ConfirmedAppointments { get; set; }
+    public int CompletedAppointments { get; set; }
+    public int CancelledAppointments { get; set; }
+}
+
+public class CompletionStatsDto
+{
+    public int TotalAppointments { get; set; }
+    public int CompletedAppointments { get; set; }
+    public int CancelledAppointments { get; set; }
+    public double CompletionRate { get; set; }
+    public double CancellationRate { get; set; }
+}
+
+public class AppointmentDetailDto
+{
+    public int AppointmentId { get; set; }
+    public string Time { get; set; } = string.Empty;
+    public string CustomerName { get; set; } = string.Empty;
+    public string PetName { get; set; } = string.Empty;
+    public string ServiceName { get; set; } = string.Empty;
+    public string DoctorName { get; set; } = string.Empty;
+    public int Status { get; set; }
+    public string StatusText { get; set; } = string.Empty;
 } 

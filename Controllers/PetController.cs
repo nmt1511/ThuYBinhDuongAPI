@@ -710,6 +710,7 @@ namespace ThuYBinhDuongAPI.Controllers
                 var skip = (page - 1) * limit;
                 var query = _context.Customers
                     .Include(c => c.User)
+                    .Include(c => c.Pets)  // Thêm Include Pets
                     .AsQueryable();
 
                 // Search filter
@@ -734,7 +735,9 @@ namespace ThuYBinhDuongAPI.Controllers
                         Gender = c.Gender,
                         UserId = c.UserId,
                         Username = c.User.Username,
-                        Role = c.User.Role
+                        Role = c.User.Role,
+                        PetCount = c.Pets.Count,  // Số lượng thú cưng
+                        AppointmentCount = c.Pets.SelectMany(p => p.Appointments).Count()  // Số lượng lịch hẹn
                     })
                     .OrderBy(c => c.CustomerName)
                     .Skip(skip)

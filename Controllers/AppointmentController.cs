@@ -15,12 +15,14 @@ namespace ThuYBinhDuongAPI.Controllers
     {
         private readonly ThuybinhduongContext _context;
         private readonly IJwtService _jwtService;
+        private readonly IEmailService _emailService;
         private readonly ILogger<AppointmentController> _logger;
 
-        public AppointmentController(ThuybinhduongContext context, IJwtService jwtService, ILogger<AppointmentController> logger)
+        public AppointmentController(ThuybinhduongContext context, IJwtService jwtService, IEmailService emailService, ILogger<AppointmentController> logger)
         {
             _context = context;
             _jwtService = jwtService;
+            _emailService = emailService;
             _logger = logger;
         }
 
@@ -645,7 +647,7 @@ namespace ThuYBinhDuongAPI.Controllers
                     Weight = createDto.Weight,
                     Age = createDto.Age,
                     IsNewPet = createDto.IsNewPet,
-                    Status = 1, // Admin tạo lịch sẽ để trạng thái "Đã xác nhận"
+                    Status = 0, // Admin tạo lịch cũng để trạng thái "Chờ xác nhận"
                     Notes = createDto.Notes,
                     CreatedAt = DateTime.UtcNow
                 };
@@ -690,7 +692,7 @@ namespace ThuYBinhDuongAPI.Controllers
                     ServiceName = appointment.Service.Name,
                     ServiceDescription = appointment.Service.Description,
                     StatusText = GetStatusText(appointment.Status),
-                    CanCancel = appointment.Status == 0 || appointment.Status == 1
+                    CanCancel = appointment.Status == 0 // Chỉ có thể hủy khi đang chờ xác nhận
                 };
 
                 _logger.LogInformation($"Admin created appointment {appointment.AppointmentId} for pet {appointment.PetId}");
@@ -797,7 +799,14 @@ namespace ThuYBinhDuongAPI.Controllers
                     return BadRequest(new { message = "Trạng thái phải từ 0 (Chờ xác nhận) đến 3 (Đã hủy)" });
                 }
 
-                var appointment = await _context.Appointments.FindAsync(id);
+                var appointment = await _context.Appointments
+                    .Include(a => a.Pet)
+                        .ThenInclude(p => p.Customer)
+                            .ThenInclude(c => c.User)
+                    .Include(a => a.Service)
+                    .Include(a => a.Doctor)
+                    .FirstOrDefaultAsync(a => a.AppointmentId == id);
+
                 if (appointment == null)
                 {
                     return NotFound(new { message = "Không tìm thấy lịch hẹn" });
@@ -806,6 +815,58 @@ namespace ThuYBinhDuongAPI.Controllers
                 var oldStatus = appointment.Status;
                 appointment.Status = newStatus;
                 await _context.SaveChangesAsync();
+
+                // Gửi email khi xác nhận lịch hẹn (status thay đổi từ 0 sang 1)
+                if (oldStatus == 0 && newStatus == 1)
+                {
+                    try
+                    {
+                        var customerEmail = appointment.Pet.Customer.User.Email;
+                        if (!string.IsNullOrEmpty(customerEmail))
+                        {
+                            await _emailService.SendAppointmentConfirmationEmailAsync(
+                                customerEmail,
+                                appointment.Pet.Customer.CustomerName,
+                                appointment.Pet.Name,
+                                appointment.Service.Name,
+                                appointment.Doctor?.FullName ?? "Chưa chỉ định",
+                                appointment.AppointmentDate.ToString("dd/MM/yyyy"),
+                                appointment.AppointmentTime
+                            );
+                        }
+                    }
+                    catch (Exception emailEx)
+                    {
+                        _logger.LogError(emailEx, "Failed to send confirmation email for appointment {AppointmentId}", id);
+                        // Không throw exception vì việc gửi email không ảnh hưởng đến logic chính
+                    }
+                }
+                // Gửi email thông báo thay đổi trạng thái cho các trường hợp khác
+                else if (oldStatus != newStatus && oldStatus.HasValue)
+                {
+                    try
+                    {
+                        var customerEmail = appointment.Pet.Customer.User.Email;
+                        if (!string.IsNullOrEmpty(customerEmail))
+                        {
+                            await _emailService.SendAppointmentStatusChangeEmailAsync(
+                                customerEmail,
+                                appointment.Pet.Customer.CustomerName,
+                                appointment.Pet.Name,
+                                appointment.Service.Name,
+                                appointment.AppointmentDate.ToString("dd/MM/yyyy"),
+                                appointment.AppointmentTime,
+                                GetStatusText(oldStatus),
+                                GetStatusText(newStatus)
+                            );
+                        }
+                    }
+                    catch (Exception emailEx)
+                    {
+                        _logger.LogError(emailEx, "Failed to send status change email for appointment {AppointmentId}", id);
+                        // Không throw exception vì việc gửi email không ảnh hưởng đến logic chính
+                    }
+                }
 
                 _logger.LogInformation($"Admin updated appointment {id} status from {GetStatusText(oldStatus)} to {GetStatusText(newStatus)}");
                 return Ok(new { 

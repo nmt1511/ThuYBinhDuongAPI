@@ -20,6 +20,9 @@ builder.Services.AddDbContext<ThuybinhduongContext>(options =>
 // Thêm JWT Service
 builder.Services.AddScoped<IJwtService, JwtService>();
 
+// Thêm Email Service
+builder.Services.AddScoped<IEmailService, EmailService>();
+
 // Cấu hình JWT Authentication
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
 var secretKey = jwtSettings["SecretKey"];
