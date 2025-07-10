@@ -10,6 +10,7 @@ namespace ThuYBinhDuongAPI.Data.Dtos
         public DateOnly? BirthDate { get; set; }
         public string? ImageUrl { get; set; }
         public string? Gender { get; set; }
+        public string? VaccinatedVaccines { get; set; }
         
         // Thông tin bổ sung
         public int? Age { get; set; } // Tuổi tính theo năm

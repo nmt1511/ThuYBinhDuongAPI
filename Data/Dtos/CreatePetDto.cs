@@ -27,5 +27,8 @@ namespace ThuYBinhDuongAPI.Data.Dtos
 
         [StringLength(50, ErrorMessage = "Giới tính không được vượt quá 50 ký tự")]
         public string? Gender { get; set; }
+
+        [StringLength(1000, ErrorMessage = "Thông tin vaccine đã tiêm không được vượt quá 1000 ký tự")]
+        public string? VaccinatedVaccines { get; set; }
     }
 } 

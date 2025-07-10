@@ -442,6 +442,274 @@ namespace ThuYBinhDuongAPI.Controllers
         #region Admin Methods
 
         /// <summary>
+        /// Lấy danh sách hồ sơ bệnh án của thú cưng (dành cho admin)
+        /// </summary>
+        [HttpGet("admin/{id}/medical-history")]
+        [AuthorizeRole(1)] // Chỉ admin
+        public async Task<ActionResult> GetMedicalHistoryAdmin(int id, [FromQuery] int page = 1, [FromQuery] int limit = 10)
+        {
+            try
+            {
+                // Kiểm tra thú cưng có tồn tại không
+                var pet = await _context.Pets
+                    .Include(p => p.Customer)
+                    .FirstOrDefaultAsync(p => p.PetId == id);
+
+                if (pet == null)
+                {
+                    return NotFound(new { message = "Không tìm thấy thú cưng" });
+                }
+
+                var query = _context.MedicalHistories
+                    .Where(mh => mh.PetId == id)
+                    .OrderByDescending(mh => mh.RecordDate);
+
+                var total = await query.CountAsync();
+                var totalPages = (int)Math.Ceiling((double)total / limit);
+                var skip = (page - 1) * limit;
+
+                var histories = await query
+                    .Skip(skip)
+                    .Take(limit)
+                    .Select(mh => new MedicalHistoryDto
+                    {
+                        HistoryId = mh.HistoryId,
+                        PetId = mh.PetId,
+                        RecordDate = mh.RecordDate,
+                        Description = mh.Description,
+                        Treatment = mh.Treatment,
+                        Notes = mh.Notes
+                    })
+                    .ToListAsync();
+
+                _logger.LogInformation($"Admin retrieved medical history for pet {id} (page {page})");
+                return Ok(new
+                {
+                    petInfo = new
+                    {
+                        petId = pet.PetId,
+                        petName = pet.Name,
+                        customerName = pet.Customer.CustomerName,
+                        customerId = pet.CustomerId
+                    },
+                    histories = histories,
+                    pagination = new
+                    {
+                        page = page,
+                        limit = limit,
+                        total = total,
+                        totalPages = totalPages
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving medical history for pet {PetId} for admin", id);
+                return StatusCode(500, new { message = "Đã xảy ra lỗi khi lấy hồ sơ bệnh án" });
+            }
+        }
+
+        /// <summary>
+        /// Thêm mới hồ sơ bệnh án (dành cho admin)
+        /// </summary>
+        [HttpPost("admin/{petId}/medical-history")]
+        [AuthorizeRole(1)] // Chỉ admin
+        public async Task<ActionResult> CreateMedicalHistoryAdmin(int petId, [FromBody] MedicalHistoryDto createDto)
+        {
+            try
+            {
+                // Kiểm tra thú cưng có tồn tại không
+                var pet = await _context.Pets
+                    .Include(p => p.Customer)
+                    .FirstOrDefaultAsync(p => p.PetId == petId);
+
+                if (pet == null)
+                {
+                    return NotFound(new { message = "Không tìm thấy thú cưng" });
+                }
+
+                var medicalHistory = new MedicalHistory
+                {
+                    PetId = petId,
+                    RecordDate = createDto.RecordDate ?? DateTime.UtcNow,
+                    Description = createDto.Description,
+                    Treatment = createDto.Treatment,
+                    Notes = createDto.Notes
+                };
+
+                _context.MedicalHistories.Add(medicalHistory);
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation($"Admin created medical history record {medicalHistory.HistoryId} for pet {petId}");
+                return CreatedAtAction(nameof(GetMedicalHistoryAdmin), 
+                    new { id = petId }, 
+                    new { 
+                        historyId = medicalHistory.HistoryId,
+                        message = "Thêm hồ sơ bệnh án thành công" 
+                    });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating medical history for pet {PetId}", petId);
+                return StatusCode(500, new { message = "Đã xảy ra lỗi khi thêm hồ sơ bệnh án" });
+            }
+        }
+
+        /// <summary>
+        /// Cập nhật hồ sơ bệnh án (dành cho admin)
+        /// </summary>
+        [HttpPut("admin/medical-history/{historyId}")]
+        [AuthorizeRole(1)] // Chỉ admin
+        public async Task<ActionResult> UpdateMedicalHistoryAdmin(int historyId, [FromBody] MedicalHistoryDto updateDto)
+        {
+            try
+            {
+                var medicalHistory = await _context.MedicalHistories
+                    .Include(mh => mh.Pet)
+                    .FirstOrDefaultAsync(mh => mh.HistoryId == historyId);
+
+                if (medicalHistory == null)
+                {
+                    return NotFound(new { message = "Không tìm thấy hồ sơ bệnh án" });
+                }
+
+                // Cập nhật thông tin
+                medicalHistory.RecordDate = updateDto.RecordDate ?? medicalHistory.RecordDate;
+                medicalHistory.Description = updateDto.Description;
+                medicalHistory.Treatment = updateDto.Treatment;
+                medicalHistory.Notes = updateDto.Notes;
+
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation($"Admin updated medical history record {historyId} for pet {medicalHistory.PetId}");
+                return Ok(new { message = "Cập nhật hồ sơ bệnh án thành công" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating medical history {HistoryId}", historyId);
+                return StatusCode(500, new { message = "Đã xảy ra lỗi khi cập nhật hồ sơ bệnh án" });
+            }
+        }
+
+        /// <summary>
+        /// Xóa hồ sơ bệnh án (dành cho admin)
+        /// </summary>
+        [HttpDelete("admin/medical-history/{historyId}")]
+        [AuthorizeRole(1)] // Chỉ admin
+        public async Task<ActionResult> DeleteMedicalHistoryAdmin(int historyId)
+        {
+            try
+            {
+                var medicalHistory = await _context.MedicalHistories.FindAsync(historyId);
+                if (medicalHistory == null)
+                {
+                    return NotFound(new { message = "Không tìm thấy hồ sơ bệnh án" });
+                }
+
+                _context.MedicalHistories.Remove(medicalHistory);
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation($"Admin deleted medical history record {historyId}");
+                return Ok(new { message = "Xóa hồ sơ bệnh án thành công" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting medical history {HistoryId}", historyId);
+                return StatusCode(500, new { message = "Đã xảy ra lỗi khi xóa hồ sơ bệnh án" });
+            }
+        }
+
+        /// <summary>
+        /// Tìm kiếm hồ sơ bệnh án (dành cho admin)
+        /// </summary>
+        [HttpGet("admin/medical-history/search")]
+        [AuthorizeRole(1)] // Chỉ admin
+        public async Task<ActionResult> SearchMedicalHistoryAdmin(
+            [FromQuery] string? searchTerm,
+            [FromQuery] DateTime? fromDate,
+            [FromQuery] DateTime? toDate,
+            [FromQuery] int? petId,
+            [FromQuery] int page = 1,
+            [FromQuery] int limit = 10)
+        {
+            try
+            {
+                var query = _context.MedicalHistories
+                    .Include(mh => mh.Pet)
+                        .ThenInclude(p => p.Customer)
+                    .AsQueryable();
+
+                // Lọc theo từ khóa
+                if (!string.IsNullOrWhiteSpace(searchTerm))
+                {
+                    searchTerm = searchTerm.ToLower();
+                    query = query.Where(mh =>
+                        (mh.Description != null && mh.Description.ToLower().Contains(searchTerm)) ||
+                        (mh.Treatment != null && mh.Treatment.ToLower().Contains(searchTerm)) ||
+                        (mh.Notes != null && mh.Notes.ToLower().Contains(searchTerm)) ||
+                        mh.Pet.Name.ToLower().Contains(searchTerm) ||
+                        mh.Pet.Customer.CustomerName.ToLower().Contains(searchTerm));
+                }
+
+                // Lọc theo khoảng thời gian
+                if (fromDate.HasValue)
+                {
+                    query = query.Where(mh => mh.RecordDate >= fromDate.Value);
+                }
+                if (toDate.HasValue)
+                {
+                    query = query.Where(mh => mh.RecordDate <= toDate.Value);
+                }
+
+                // Lọc theo thú cưng
+                if (petId.HasValue)
+                {
+                    query = query.Where(mh => mh.PetId == petId.Value);
+                }
+
+                var total = await query.CountAsync();
+                var totalPages = (int)Math.Ceiling((double)total / limit);
+                var skip = (page - 1) * limit;
+
+                var histories = await query
+                    .OrderByDescending(mh => mh.RecordDate)
+                    .Skip(skip)
+                    .Take(limit)
+                    .Select(mh => new
+                    {
+                        HistoryId = mh.HistoryId,
+                        PetId = mh.PetId,
+                        PetName = mh.Pet.Name,
+                        CustomerName = mh.Pet.Customer.CustomerName,
+                        CustomerId = mh.Pet.CustomerId,
+                        RecordDate = mh.RecordDate,
+                        Description = mh.Description,
+                        Treatment = mh.Treatment,
+                        Notes = mh.Notes
+                    })
+                    .ToListAsync();
+
+                _logger.LogInformation($"Admin searched medical histories, found {total} results");
+                return Ok(new
+                {
+                    histories = histories,
+                    pagination = new
+                    {
+                        page = page,
+                        limit = limit,
+                        total = total,
+                        totalPages = totalPages
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error searching medical histories");
+                return StatusCode(500, new { message = "Đã xảy ra lỗi khi tìm kiếm hồ sơ bệnh án" });
+            }
+        }
+
+        /// <summary>
         /// Lấy danh sách tất cả thú cưng (dành cho admin)
         /// </summary>
         [HttpGet("admin")]
@@ -585,33 +853,44 @@ namespace ThuYBinhDuongAPI.Controllers
             {
                 var pet = await _context.Pets
                     .Include(p => p.Customer)
-                    .Where(p => p.PetId == id)
-                    .Select(p => new PetResponseDto
-                    {
-                        PetId = p.PetId,
-                        CustomerId = p.CustomerId,
-                        Name = p.Name,
-                        Species = p.Species,
-                        Breed = p.Breed,
-                        BirthDate = p.BirthDate,
-                        ImageUrl = p.ImageUrl,
-                        Gender = p.Gender,
-                        Age = p.BirthDate.HasValue ? CalculateAge(p.BirthDate.Value) : null,
-                        CustomerName = p.Customer.CustomerName
-                    })
-                    .FirstOrDefaultAsync();
+                    .Include(p => p.MedicalHistories)
+                    .FirstOrDefaultAsync(p => p.PetId == id);
 
                 if (pet == null)
                 {
                     return NotFound(new { message = "Không tìm thấy thú cưng" });
                 }
 
+                var petDto = new PetResponseDto
+                {
+                    PetId = pet.PetId,
+                    CustomerId = pet.CustomerId,
+                    Name = pet.Name,
+                    Species = pet.Species,
+                    Breed = pet.Breed,
+                    BirthDate = pet.BirthDate,
+                    ImageUrl = pet.ImageUrl,
+                    Gender = pet.Gender,
+                    VaccinatedVaccines = pet.VaccinatedVaccines,
+                    Age = pet.BirthDate.HasValue ? CalculateAge(pet.BirthDate.Value) : null,
+                    CustomerName = pet.Customer.CustomerName,
+                    MedicalHistories = pet.MedicalHistories?.OrderByDescending(mh => mh.RecordDate).Select(mh => new MedicalHistoryDto
+                    {
+                        HistoryId = mh.HistoryId,
+                        PetId = mh.PetId,
+                        RecordDate = mh.RecordDate,
+                        Description = mh.Description,
+                        Treatment = mh.Treatment,
+                        Notes = mh.Notes
+                    }).ToList()
+                };
+
                 _logger.LogInformation($"Admin retrieved pet {id}");
-                return Ok(pet);
+                return Ok(petDto);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error retrieving pet {PetId} for admin", id);
+                _logger.LogError(ex, "Error retrieving pet {PetId}", id);
                 return StatusCode(500, new { message = "Đã xảy ra lỗi khi lấy thông tin thú cưng" });
             }
         }
@@ -625,16 +904,24 @@ namespace ThuYBinhDuongAPI.Controllers
         {
             try
             {
+                _logger.LogInformation("Admin creating pet with data: {@CreatePetDto} for customer {CustomerId}", createPetDto, customerId);
+
                 if (!ModelState.IsValid)
                 {
-                    return BadRequest(ModelState);
+                    var errors = ModelState.Values
+                        .SelectMany(v => v.Errors)
+                        .Select(e => e.ErrorMessage)
+                        .ToList();
+                    _logger.LogWarning("Validation errors: {@Errors}", errors);
+                    return BadRequest(new { message = "Dữ liệu không hợp lệ", errors = errors });
                 }
 
                 // Kiểm tra customer có tồn tại không
                 var customer = await _context.Customers.FindAsync(customerId);
                 if (customer == null)
                 {
-                    return BadRequest(new { message = "Khách hàng không tồn tại" });
+                    _logger.LogWarning("Customer {CustomerId} not found", customerId);
+                    return BadRequest(new { message = "Không tìm thấy khách hàng" });
                 }
 
                 // Kiểm tra tên thú cưng đã tồn tại cho khách hàng này chưa
@@ -643,7 +930,8 @@ namespace ThuYBinhDuongAPI.Controllers
 
                 if (existingPet)
                 {
-                    return BadRequest(new { message = "Khách hàng này đã có thú cưng với tên này" });
+                    _logger.LogWarning("Pet name already exists for customer {CustomerId}: {PetName}", customerId, createPetDto.Name);
+                    return BadRequest(new { message = "Khách hàng đã có thú cưng với tên này" });
                 }
 
                 var pet = new Pet
@@ -654,7 +942,8 @@ namespace ThuYBinhDuongAPI.Controllers
                     Breed = !string.IsNullOrWhiteSpace(createPetDto.Breed) ? createPetDto.Breed.Trim() : null,
                     BirthDate = createPetDto.BirthDate ?? ParseBirthDate(createPetDto.BirthDateString),
                     ImageUrl = !string.IsNullOrWhiteSpace(createPetDto.ImageUrl) ? createPetDto.ImageUrl.Trim() : null,
-                    Gender = !string.IsNullOrWhiteSpace(createPetDto.Gender) ? createPetDto.Gender.Trim() : null
+                    Gender = !string.IsNullOrWhiteSpace(createPetDto.Gender) ? createPetDto.Gender.Trim() : null,
+                    VaccinatedVaccines = !string.IsNullOrWhiteSpace(createPetDto.VaccinatedVaccines) ? createPetDto.VaccinatedVaccines.Trim() : null
                 };
 
                 _context.Pets.Add(pet);
@@ -665,7 +954,7 @@ namespace ThuYBinhDuongAPI.Controllers
                     .Reference(p => p.Customer)
                     .LoadAsync();
 
-                var response = new PetResponseDto
+                var petDto = new PetResponseDto
                 {
                     PetId = pet.PetId,
                     CustomerId = pet.CustomerId,
@@ -679,12 +968,12 @@ namespace ThuYBinhDuongAPI.Controllers
                     CustomerName = pet.Customer.CustomerName
                 };
 
-                _logger.LogInformation($"Admin created pet {pet.PetId} - {pet.Name} for customer {customerId}");
-                return CreatedAtAction(nameof(GetPetAdmin), new { id = pet.PetId }, response);
+                _logger.LogInformation("Admin created pet {PetId} for customer {CustomerId}", pet.PetId, customerId);
+                return CreatedAtAction(nameof(GetPetAdmin), new { id = pet.PetId }, petDto);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error creating pet for admin");
+                _logger.LogError(ex, "Error creating pet for customer {CustomerId}", customerId);
                 return StatusCode(500, new { message = "Đã xảy ra lỗi khi thêm thú cưng" });
             }
         }
@@ -840,94 +1129,6 @@ namespace ThuYBinhDuongAPI.Controllers
             {
                 _logger.LogError(ex, "Error retrieving customers for pet management");
                 return StatusCode(500, new { message = "Đã xảy ra lỗi khi lấy danh sách khách hàng" });
-            }
-        }
-
-        /// <summary>
-        /// Tạo dữ liệu pets mẫu (dành cho admin)
-        /// </summary>
-        [HttpPost("admin/seed-data")]
-        [AuthorizeRole(1)] // Chỉ admin
-        public async Task<IActionResult> SeedPets()
-        {
-            try
-            {
-                // Kiểm tra xem đã có pets chưa
-                var existingPetsCount = await _context.Pets.CountAsync();
-                if (existingPetsCount > 0)
-                {
-                    return BadRequest(new { message = $"Đã có {existingPetsCount} pets trong hệ thống. Không cần tạo dữ liệu mẫu." });
-                }
-
-                // Lấy danh sách customers có sẵn
-                var customers = await _context.Customers.Take(10).ToListAsync();
-                if (customers.Count == 0)
-                {
-                    return BadRequest(new { message = "Không có khách hàng nào trong hệ thống. Vui lòng tạo khách hàng trước." });
-                }
-
-                var random = new Random();
-                var samplePets = new List<Pet>();
-
-                // Tạo 20 pets mẫu
-                var petData = new[]
-                {
-                    new { Name = "Milu", Species = "Chó", Breed = "Golden Retriever", Gender = "Đực" },
-                    new { Name = "Luna", Species = "Mèo", Breed = "British Shorthair", Gender = "Cái" },
-                    new { Name = "Max", Species = "Chó", Breed = "Labrador", Gender = "Đực" },
-                    new { Name = "Bella", Species = "Mèo", Breed = "Persian", Gender = "Cái" },
-                    new { Name = "Rocky", Species = "Chó", Breed = "German Shepherd", Gender = "Đực" },
-                    new { Name = "Mimi", Species = "Mèo", Breed = "Siamese", Gender = "Cái" },
-                    new { Name = "Buddy", Species = "Chó", Breed = "Poodle", Gender = "Đực" },
-                    new { Name = "Kitty", Species = "Mèo", Breed = "Maine Coon", Gender = "Cái" },
-                    new { Name = "Charlie", Species = "Chó", Breed = "Husky", Gender = "Đực" },
-                    new { Name = "Molly", Species = "Mèo", Breed = "Ragdoll", Gender = "Cái" },
-                    new { Name = "Kiwi", Species = "Chim", Breed = "Budgerigar", Gender = "Đực" },
-                    new { Name = "Coco", Species = "Chim", Breed = "Cockatiel", Gender = "Cái" },
-                    new { Name = "Binky", Species = "Thỏ", Breed = "Holland Lop", Gender = "Đực" },
-                    new { Name = "Honey", Species = "Thỏ", Breed = "Netherland Dwarf", Gender = "Cái" },
-                    new { Name = "Pip", Species = "Hamster", Breed = "Syrian", Gender = "Đực" },
-                    new { Name = "Daisy", Species = "Chó", Breed = "Beagle", Gender = "Cái" },
-                    new { Name = "Tiger", Species = "Mèo", Breed = "Bengal", Gender = "Đực" },
-                    new { Name = "Lucky", Species = "Chó", Breed = "Shiba Inu", Gender = "Đực" },
-                    new { Name = "Princess", Species = "Mèo", Breed = "Scottish Fold", Gender = "Cái" },
-                    new { Name = "Oreo", Species = "Hamster", Breed = "Dwarf", Gender = "Đực" }
-                };
-
-                foreach (var petInfo in petData)
-                {
-                    var randomCustomer = customers[random.Next(customers.Count)];
-                    var birthDate = DateOnly.FromDateTime(DateTime.Now.AddMonths(-random.Next(6, 60))); // 6 tháng đến 5 tuổi
-
-                    var pet = new Pet
-                    {
-                        CustomerId = randomCustomer.CustomerId,
-                        Name = petInfo.Name,
-                        Species = petInfo.Species,
-                        Breed = petInfo.Breed,
-                        BirthDate = birthDate,
-                        ImageUrl = null, // Có thể thêm URL hình ảnh mẫu sau
-                        Gender = petInfo.Gender
-                    };
-
-                    samplePets.Add(pet);
-                }
-
-                _context.Pets.AddRange(samplePets);
-                await _context.SaveChangesAsync();
-
-                _logger.LogInformation($"Admin created {samplePets.Count} sample pets");
-                return Ok(new 
-                { 
-                    message = $"Đã tạo thành công {samplePets.Count} pets mẫu", 
-                    count = samplePets.Count,
-                    pets = samplePets.Select(p => new { p.Name, p.Species, p.Breed, CustomerName = customers.First(c => c.CustomerId == p.CustomerId).CustomerName })
-                });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error creating sample pets");
-                return StatusCode(500, new { message = "Đã xảy ra lỗi khi tạo dữ liệu pets mẫu" });
             }
         }
 
