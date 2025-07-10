@@ -83,7 +83,7 @@ public class ChangeDataDto
     public int AppointmentChange { get; set; }
     public double CompletionRateChange { get; set; }
     public double AppointmentChangePercent { get; set; }
-}
+} 
 
 public class SimpleDashboardDto
 {
