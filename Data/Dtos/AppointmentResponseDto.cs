@@ -14,6 +14,7 @@ namespace ThuYBinhDuongAPI.Data.Dtos
         public int? Status { get; set; }
         public string? Notes { get; set; }
         public DateTime? CreatedAt { get; set; }
+        public string? VaccinatedVaccines { get; set; }
 
         // Thông tin liên quan
         public string? PetName { get; set; }

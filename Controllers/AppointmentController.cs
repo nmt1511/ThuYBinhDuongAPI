@@ -79,7 +79,8 @@ namespace ThuYBinhDuongAPI.Controllers
                         ServiceName = a.Service.Name,
                         ServiceDescription = a.Service.Description,
                         StatusText = GetStatusText(a.Status),
-                        CanCancel = a.Status == 0 // Chỉ có thể hủy khi status = 0 (chờ xác nhận)
+                        CanCancel = a.Status == 0, // Chỉ có thể hủy khi status = 0 (chờ xác nhận)
+                        VaccinatedVaccines = a.Pet.VaccinatedVaccines
                     })
                     .ToListAsync();
 
@@ -144,7 +145,8 @@ namespace ThuYBinhDuongAPI.Controllers
                         ServiceName = a.Service.Name,
                         ServiceDescription = a.Service.Description,
                         StatusText = GetStatusText(a.Status),
-                        CanCancel = a.Status == 0
+                        CanCancel = a.Status == 0,
+                        VaccinatedVaccines = a.Pet.VaccinatedVaccines
                     })
                     .FirstOrDefaultAsync();
 
@@ -282,7 +284,8 @@ namespace ThuYBinhDuongAPI.Controllers
                     ServiceName = appointment.Service.Name,
                     ServiceDescription = appointment.Service.Description,
                     StatusText = GetStatusText(appointment.Status),
-                    CanCancel = appointment.Status == 0
+                    CanCancel = appointment.Status == 0,
+                    VaccinatedVaccines = appointment.Pet.VaccinatedVaccines
                 };
 
                 _logger.LogInformation($"Customer {customerId} created appointment {appointment.AppointmentId} for pet {appointment.PetId}");
@@ -429,7 +432,8 @@ namespace ThuYBinhDuongAPI.Controllers
                         ServiceName = a.Service.Name,
                         ServiceDescription = a.Service.Description,
                         StatusText = GetStatusText(a.Status),
-                        CanCancel = a.Status == 0 || a.Status == 1 // Admin có thể hủy nhiều trạng thái hơn
+                        CanCancel = a.Status == 0 || a.Status == 1, // Admin có thể hủy nhiều trạng thái hơn
+              
                     })
                     .OrderByDescending(a => a.CreatedAt)
                     .Skip(skip)
@@ -505,7 +509,8 @@ namespace ThuYBinhDuongAPI.Controllers
                         ServiceName = a.Service.Name,
                         ServiceDescription = a.Service.Description,
                         StatusText = GetStatusText(a.Status),
-                        CanCancel = a.Status == 0 || a.Status == 1
+                        CanCancel = a.Status == 0 || a.Status == 1,
+         
                     })
                     .OrderByDescending(a => a.CreatedAt)
                     .Skip(skip)
@@ -580,7 +585,8 @@ namespace ThuYBinhDuongAPI.Controllers
                         ServiceName = a.Service.Name,
                         ServiceDescription = a.Service.Description,
                         StatusText = GetStatusText(a.Status),
-                        CanCancel = a.Status == 0 || a.Status == 1
+                        CanCancel = a.Status == 0 || a.Status == 1,
+    
                     })
                     .FirstOrDefaultAsync();
 
@@ -713,7 +719,8 @@ namespace ThuYBinhDuongAPI.Controllers
                     ServiceName = appointment.Service.Name,
                     ServiceDescription = appointment.Service.Description,
                     StatusText = GetStatusText(appointment.Status),
-                    CanCancel = appointment.Status == 0 // Chỉ có thể hủy khi đang chờ xác nhận
+                    CanCancel = appointment.Status == 0, // Chỉ có thể hủy khi đang chờ xác nhận
+           
                 };
 
                 _logger.LogInformation($"Admin created appointment {appointment.AppointmentId} for pet {appointment.PetId}");

@@ -53,7 +53,8 @@ namespace ThuYBinhDuongAPI.Controllers
                         ImageUrl = p.ImageUrl,
                         Gender = p.Gender,
                         Age = p.BirthDate.HasValue ? CalculateAge(p.BirthDate.Value) : null,
-                        CustomerName = p.Customer.CustomerName
+                        CustomerName = p.Customer.CustomerName,
+                        VaccinatedVaccines = p.VaccinatedVaccines
                     })
                     .OrderBy(p => p.Name)
                     .ToListAsync();
@@ -106,6 +107,7 @@ namespace ThuYBinhDuongAPI.Controllers
                     Gender = pet.Gender,
                     Age = pet.BirthDate.HasValue ? CalculateAge(pet.BirthDate.Value) : null,
                     CustomerName = pet.Customer.CustomerName,
+                    VaccinatedVaccines = pet.VaccinatedVaccines,
                     MedicalHistories = pet.MedicalHistories?.OrderByDescending(mh => mh.RecordDate).Select(mh => new MedicalHistoryDto
                     {
                         HistoryId = mh.HistoryId,
@@ -239,7 +241,8 @@ namespace ThuYBinhDuongAPI.Controllers
                     Breed = !string.IsNullOrWhiteSpace(createPetDto.Breed) ? createPetDto.Breed.Trim() : null,
                     BirthDate = createPetDto.BirthDate ?? ParseBirthDate(createPetDto.BirthDateString),
                     ImageUrl = !string.IsNullOrWhiteSpace(createPetDto.ImageUrl) ? createPetDto.ImageUrl.Trim() : null,
-                    Gender = !string.IsNullOrWhiteSpace(createPetDto.Gender) ? createPetDto.Gender.Trim() : null
+                    Gender = !string.IsNullOrWhiteSpace(createPetDto.Gender) ? createPetDto.Gender.Trim() : null,
+                    VaccinatedVaccines = !string.IsNullOrWhiteSpace(createPetDto.VaccinatedVaccines) ? createPetDto.VaccinatedVaccines.Trim() : null
                 };
 
                 _context.Pets.Add(pet);
@@ -261,7 +264,8 @@ namespace ThuYBinhDuongAPI.Controllers
                     ImageUrl = pet.ImageUrl,
                     Gender = pet.Gender,
                     Age = pet.BirthDate.HasValue ? CalculateAge(pet.BirthDate.Value) : null,
-                    CustomerName = pet.Customer.CustomerName
+                    CustomerName = pet.Customer.CustomerName,
+                    VaccinatedVaccines = pet.VaccinatedVaccines
                 };
 
                 _logger.LogInformation("Successfully created pet {PetId} - {PetName} for customer {CustomerId}", pet.PetId, pet.Name, customerId);
@@ -329,6 +333,7 @@ namespace ThuYBinhDuongAPI.Controllers
                 pet.BirthDate = updatePetDto.BirthDate ?? ParseBirthDate(updatePetDto.BirthDateString);
                 pet.ImageUrl = !string.IsNullOrWhiteSpace(updatePetDto.ImageUrl) ? updatePetDto.ImageUrl.Trim() : null;
                 pet.Gender = !string.IsNullOrWhiteSpace(updatePetDto.Gender) ? updatePetDto.Gender.Trim() : null;
+                pet.VaccinatedVaccines = !string.IsNullOrWhiteSpace(updatePetDto.VaccinatedVaccines) ? updatePetDto.VaccinatedVaccines.Trim() : null;
 
                 await _context.SaveChangesAsync();
 
@@ -741,7 +746,8 @@ namespace ThuYBinhDuongAPI.Controllers
                         ImageUrl = p.ImageUrl,
                         Gender = p.Gender,
                         Age = p.BirthDate.HasValue ? CalculateAge(p.BirthDate.Value) : null,
-                        CustomerName = p.Customer.CustomerName
+                        CustomerName = p.Customer.CustomerName,
+                        VaccinatedVaccines = p.VaccinatedVaccines
                     })
                     .OrderBy(p => p.CustomerName)
                     .ThenBy(p => p.Name)
@@ -805,7 +811,8 @@ namespace ThuYBinhDuongAPI.Controllers
                         ImageUrl = p.ImageUrl,
                         Gender = p.Gender,
                         Age = p.BirthDate.HasValue ? CalculateAge(p.BirthDate.Value) : null,
-                        CustomerName = p.Customer.CustomerName
+                        CustomerName = p.Customer.CustomerName,
+                        VaccinatedVaccines = p.VaccinatedVaccines
                     })
                     .OrderBy(p => p.CustomerName)
                     .ThenBy(p => p.Name)
@@ -965,7 +972,8 @@ namespace ThuYBinhDuongAPI.Controllers
                     ImageUrl = pet.ImageUrl,
                     Gender = pet.Gender,
                     Age = pet.BirthDate.HasValue ? CalculateAge(pet.BirthDate.Value) : null,
-                    CustomerName = pet.Customer.CustomerName
+                    CustomerName = pet.Customer.CustomerName,
+                    VaccinatedVaccines = pet.VaccinatedVaccines
                 };
 
                 _logger.LogInformation("Admin created pet {PetId} for customer {CustomerId}", pet.PetId, customerId);
@@ -1014,6 +1022,7 @@ namespace ThuYBinhDuongAPI.Controllers
                 pet.BirthDate = updatePetDto.BirthDate ?? ParseBirthDate(updatePetDto.BirthDateString);
                 pet.ImageUrl = !string.IsNullOrWhiteSpace(updatePetDto.ImageUrl) ? updatePetDto.ImageUrl.Trim() : null;
                 pet.Gender = !string.IsNullOrWhiteSpace(updatePetDto.Gender) ? updatePetDto.Gender.Trim() : null;
+                pet.VaccinatedVaccines = !string.IsNullOrWhiteSpace(updatePetDto.VaccinatedVaccines) ? updatePetDto.VaccinatedVaccines.Trim() : null;
 
                 await _context.SaveChangesAsync();
 
