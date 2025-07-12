@@ -339,5 +339,74 @@ namespace ThuYBinhDuongAPI.Controllers
                 return StatusCode(500, new { message = "Đã xảy ra lỗi khi xóa hồ sơ bệnh án" });
             }
         }
+
+        /// <summary>
+        /// Lấy danh sách hồ sơ bệnh án của thú cưng (chỉ khách hàng sở hữu thú cưng đó mới xem được)
+        /// </summary>
+        [HttpGet("pet/{petId}")]
+        [AuthorizeRole(0)] // Chỉ khách hàng
+        public async Task<ActionResult> GetMedicalHistoryForCustomer(int petId, [FromQuery] int page = 1, [FromQuery] int limit = 5)
+        {
+            try
+            {
+                // Lấy customerId từ JWT
+                var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                if (!int.TryParse(userIdClaim, out int userId))
+                {
+                    return BadRequest(new { message = "Không tìm thấy thông tin khách hàng" });
+                }
+                var customerId = await _context.Customers.Where(c => c.UserId == userId).Select(c => c.CustomerId).FirstOrDefaultAsync();
+                if (customerId == 0)
+                {
+                    return BadRequest(new { message = "Không tìm thấy thông tin khách hàng" });
+                }
+
+                // Kiểm tra quyền truy cập thú cưng
+                var pet = await _context.Pets.Where(p => p.PetId == petId && p.CustomerId == customerId).FirstOrDefaultAsync();
+                if (pet == null)
+                {
+                    return NotFound(new { message = "Không tìm thấy thú cưng hoặc bạn không có quyền truy cập" });
+                }
+
+                var query = _context.MedicalHistories
+                    .Where(mh => mh.PetId == petId)
+                    .OrderByDescending(mh => mh.RecordDate);
+
+                var total = await query.CountAsync();
+                var totalPages = (int)Math.Ceiling((double)total / limit);
+                var skip = (page - 1) * limit;
+
+                var histories = await query
+                    .Skip(skip)
+                    .Take(limit)
+                    .Select(mh => new MedicalHistoryDto
+                    {
+                        HistoryId = mh.HistoryId,
+                        PetId = mh.PetId,
+                        RecordDate = mh.RecordDate,
+                        Description = mh.Description,
+                        Treatment = mh.Treatment,
+                        Notes = mh.Notes
+                    })
+                    .ToListAsync();
+
+                return Ok(new
+                {
+                    histories = histories,
+                    pagination = new
+                    {
+                        page = page,
+                        limit = limit,
+                        total = total,
+                        totalPages = totalPages
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving medical history for pet {PetId}", petId);
+                return StatusCode(500, new { message = "Đã xảy ra lỗi khi lấy hồ sơ bệnh án" });
+            }
+        }
     }
 } 

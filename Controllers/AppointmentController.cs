@@ -31,7 +31,7 @@ namespace ThuYBinhDuongAPI.Controllers
         /// </summary>
         [HttpGet]
         [AuthorizeRole(0)] // Chỉ khách hàng
-        public async Task<ActionResult> GetMyAppointments([FromQuery] int page = 1, [FromQuery] int limit = 5)
+        public async Task<ActionResult> GetMyAppointments([FromQuery] int page = 1, [FromQuery] int limit = 5, [FromQuery] int? status = null)
         {
             try
             {
@@ -47,6 +47,12 @@ namespace ThuYBinhDuongAPI.Controllers
                     .Include(a => a.Doctor)
                     .Include(a => a.Service)
                     .Where(a => a.Pet.CustomerId == customerId.Value);
+
+                // Filter by status if specified
+                if (status.HasValue)
+                {
+                    query = query.Where(a => a.Status == status.Value);
+                }
 
                 // Sắp xếp: chờ xác nhận trước, rồi đến ngày gần nhất
                 query = query
