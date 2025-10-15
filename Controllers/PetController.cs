@@ -741,7 +741,7 @@ namespace ThuYBinhDuongAPI.Controllers
                 var pets = await _context.Pets
                     .Include(p => p.Customer)
                     .Where(p => p.Name.ToLower().Contains(searchQuery) ||
-                               p.Species.ToLower().Contains(searchQuery) ||
+                               (p.Species != null && p.Species.ToLower().Contains(searchQuery)) ||
                                (p.Breed != null && p.Breed.ToLower().Contains(searchQuery)) ||
                                p.Customer.CustomerName.ToLower().Contains(searchQuery))
                     .Select(p => new PetResponseDto
@@ -767,7 +767,7 @@ namespace ThuYBinhDuongAPI.Controllers
                 var totalResults = await _context.Pets
                     .Include(p => p.Customer)
                     .Where(p => p.Name.ToLower().Contains(searchQuery) ||
-                               p.Species.ToLower().Contains(searchQuery) ||
+                               (p.Species != null && p.Species.ToLower().Contains(searchQuery)) ||
                                (p.Breed != null && p.Breed.ToLower().Contains(searchQuery)) ||
                                p.Customer.CustomerName.ToLower().Contains(searchQuery))
                     .CountAsync();

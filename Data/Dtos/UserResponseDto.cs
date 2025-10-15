@@ -18,6 +18,7 @@ namespace ThuYBinhDuongAPI.Data.Dtos
         public string? Token { get; set; }
         
         // Customer-specific fields (only populated for customers)
+        public int? CustomerId { get; set; }
         public string? CustomerName { get; set; }
         public string? Address { get; set; }
         public int? Gender { get; set; }

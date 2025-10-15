@@ -201,12 +201,14 @@ namespace ThuYBinhDuongAPI.Controllers
                     return Unauthorized(new { message = "Token không hợp lệ" });
                 }
 
-                var user = await _context.Users.FindAsync(userId);
+                // Include Customer info
+                var user = await _context.Users.Include(u => u.Customers).FirstOrDefaultAsync(u => u.UserId == userId);
                 if (user == null)
                 {
                     return NotFound(new { message = "Không tìm thấy người dùng" });
                 }
 
+                var customer = user.Customers.FirstOrDefault();
                 var response = new UserResponseDto
                 {
                     UserId = user.UserId,
@@ -214,7 +216,11 @@ namespace ThuYBinhDuongAPI.Controllers
                     Email = user.Email,
                     PhoneNumber = user.PhoneNumber,
                     Role = user.Role,
-                    CreatedAt = user.CreatedAt
+                    CreatedAt = user.CreatedAt,
+                    CustomerId = customer?.CustomerId, // Thêm customer_id
+                    CustomerName = customer?.CustomerName,
+                    Address = customer?.Address,
+                    Gender = customer?.Gender
                 };
 
                 return Ok(response);
@@ -248,7 +254,10 @@ namespace ThuYBinhDuongAPI.Controllers
                     Email = user.Email,
                     PhoneNumber = user.PhoneNumber,
                     Role = user.Role,
-                    CreatedAt = user.CreatedAt
+                    CreatedAt = user.CreatedAt,
+                    CustomerName = user.Customers.FirstOrDefault()?.CustomerName,
+                    Address = user.Customers.FirstOrDefault()?.Address,
+                    Gender = user.Customers.FirstOrDefault()?.Gender
                 };
 
                 return Ok(response);
@@ -330,10 +339,7 @@ namespace ThuYBinhDuongAPI.Controllers
                          RoleName = u.Role == 0 ? "Customer" : u.Role == 1 ? "Administrator" : "Doctor",
                          CreatedAt = u.CreatedAt,
                          // Include Customer information if user is a customer
-                         CustomerName = u.Customers.FirstOrDefault() != null ? u.Customers.FirstOrDefault()!.CustomerName : null,
-                         Address = u.Customers.FirstOrDefault() != null ? u.Customers.FirstOrDefault()!.Address : null,
-                         Gender = u.Customers.FirstOrDefault() != null ? u.Customers.FirstOrDefault()!.Gender : null,
-                         CustomerId = u.Customers.FirstOrDefault() != null ? u.Customers.FirstOrDefault()!.CustomerId : (int?)null
+                         
                      })
                      .ToListAsync();
 

@@ -435,7 +435,7 @@ namespace ThuYBinhDuongAPI.Controllers
                 {
                     avgRating = await _context.Feedbacks
                         .Where(f => f.Rating.HasValue)
-                        .AverageAsync(f => (double)f.Rating.Value);
+                        .AverageAsync(f => (double)f.Rating!.Value);
                 }
                 
                 var ratingCounts = await _context.Feedbacks

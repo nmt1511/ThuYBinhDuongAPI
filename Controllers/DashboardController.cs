@@ -452,12 +452,12 @@ public class DashboardController : ControllerBase
 
         var groupedData = period.ToLower() switch
         {
-            "day" => appointments.GroupBy(a => a.CreatedAt.Value.Date),
-            "week" => appointments.GroupBy(a => GetWeekKey(a.CreatedAt.Value)),
-            "month" => appointments.GroupBy(a => new DateTime(a.CreatedAt.Value.Year, a.CreatedAt.Value.Month, 1)),
-            "quarter" => appointments.GroupBy(a => GetQuarterKey(a.CreatedAt.Value)),
-            "year" => appointments.GroupBy(a => new DateTime(a.CreatedAt.Value.Year, 1, 1)),
-            _ => appointments.GroupBy(a => new DateTime(a.CreatedAt.Value.Year, a.CreatedAt.Value.Month, 1))
+            "day" => appointments.GroupBy(a => a.CreatedAt!.Value.Date),
+            "week" => appointments.GroupBy(a => GetWeekKey(a.CreatedAt!.Value)),
+            "month" => appointments.GroupBy(a => new DateTime(a.CreatedAt!.Value.Year, a.CreatedAt!.Value.Month, 1)),
+            "quarter" => appointments.GroupBy(a => GetQuarterKey(a.CreatedAt!.Value)),
+            "year" => appointments.GroupBy(a => new DateTime(a.CreatedAt!.Value.Year, 1, 1)),
+            _ => appointments.GroupBy(a => new DateTime(a.CreatedAt!.Value.Year, a.CreatedAt!.Value.Month, 1))
         };
 
         return groupedData.Select(g => new TimeSeriesDataDto
@@ -479,7 +479,7 @@ public class DashboardController : ControllerBase
 
         return completedAppointments
             .Where(a => a.Service != null && a.Service.Price.HasValue)
-            .Sum(a => a.Service.Price.Value);
+            .Sum(a => a.Service!.Price!.Value);
     }
 
     private static DateTime GetWeekKey(DateTime date)
