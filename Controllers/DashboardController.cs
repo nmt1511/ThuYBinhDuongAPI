@@ -36,7 +36,7 @@ public class DashboardController : ControllerBase
                 _ => endDate.AddMonths(-1)
             };
 
-            // Get appointments data
+            // Get appointments data - Filter by CreatedAt (ngày tạo lịch)
             var appointments = await _context.Appointments
                 .Where(a => a.CreatedAt.HasValue && a.CreatedAt.Value >= startDate && a.CreatedAt.Value <= endDate)
                 .Include(a => a.Doctor)
@@ -240,12 +240,12 @@ public class DashboardController : ControllerBase
                 _ => startDate.AddMonths(-1)
             };
 
-            // Current period data
+            // Current period data - Filter by CreatedAt (ngày tạo lịch)
             var currentAppointments = await _context.Appointments
                 .Where(a => a.CreatedAt.HasValue && a.CreatedAt.Value >= startDate && a.CreatedAt.Value <= endDate)
                 .ToListAsync();
 
-            // Previous period data
+            // Previous period data - Filter by CreatedAt (ngày tạo lịch)
             var previousAppointments = await _context.Appointments
                 .Where(a => a.CreatedAt.HasValue && a.CreatedAt.Value >= prevStartDate && a.CreatedAt.Value < startDate)
                 .ToListAsync();
@@ -363,6 +363,143 @@ public class DashboardController : ControllerBase
         }
     }
 
+    // GET: api/Dashboard/flexible
+    [HttpGet("flexible")]
+    [AuthorizeRole(1)] // Admin only
+    public async Task<ActionResult<SimpleDashboardDto>> GetFlexibleDashboard(
+        [FromQuery] string filterType = "today", // today, specific-date, last-7-days, this-week, last-week, specific-month
+        [FromQuery] string? specificDate = null, // Format: yyyy-MM-dd
+        [FromQuery] int? month = null, // 1-12
+        [FromQuery] int? year = null) // yyyy
+    {
+        try
+        {
+            DateTime startDate;
+            DateTime endDate;
+            string displayPeriod;
+
+            switch (filterType.ToLower())
+            {
+                case "specific-date":
+                    if (string.IsNullOrEmpty(specificDate) || !DateTime.TryParse(specificDate, out var parsedDate))
+                    {
+                        return BadRequest(new { message = "Ngày không hợp lệ. Sử dụng định dạng yyyy-MM-dd" });
+                    }
+                    startDate = parsedDate.Date;
+                    endDate = parsedDate.Date.AddDays(1).AddSeconds(-1);
+                    displayPeriod = $"Ngày {parsedDate:dd/MM/yyyy}";
+                    break;
+
+                case "last-7-days":
+                    endDate = DateTime.Today.AddDays(1).AddSeconds(-1);
+                    startDate = DateTime.Today.AddDays(-6); // 7 ngày bao gồm hôm nay
+                    displayPeriod = "7 ngày gần nhất";
+                    break;
+
+                case "this-week":
+                    var thisWeekStart = DateTime.Today.AddDays(-(int)DateTime.Today.DayOfWeek + (int)DayOfWeek.Monday);
+                    if (DateTime.Today.DayOfWeek == DayOfWeek.Sunday)
+                        thisWeekStart = thisWeekStart.AddDays(-7);
+                    startDate = thisWeekStart;
+                    endDate = thisWeekStart.AddDays(7).AddSeconds(-1);
+                    displayPeriod = $"Tuần này ({thisWeekStart:dd/MM} - {thisWeekStart.AddDays(6):dd/MM/yyyy})";
+                    break;
+
+                case "last-week":
+                    var lastWeekStart = DateTime.Today.AddDays(-(int)DateTime.Today.DayOfWeek + (int)DayOfWeek.Monday - 7);
+                    if (DateTime.Today.DayOfWeek == DayOfWeek.Sunday)
+                        lastWeekStart = lastWeekStart.AddDays(-7);
+                    startDate = lastWeekStart;
+                    endDate = lastWeekStart.AddDays(7).AddSeconds(-1);
+                    displayPeriod = $"Tuần trước ({lastWeekStart:dd/MM} - {lastWeekStart.AddDays(6):dd/MM/yyyy})";
+                    break;
+
+                case "specific-month":
+                    if (!month.HasValue || month < 1 || month > 12)
+                    {
+                        return BadRequest(new { message = "Tháng phải từ 1-12" });
+                    }
+                    var targetYear = year ?? DateTime.Today.Year;
+                    startDate = new DateTime(targetYear, month.Value, 1);
+                    endDate = startDate.AddMonths(1).AddSeconds(-1);
+                    displayPeriod = $"Tháng {month}/{targetYear}";
+                    break;
+
+                case "today":
+                default:
+                    startDate = DateTime.Today;
+                    endDate = DateTime.Today.AddDays(1).AddSeconds(-1);
+                    displayPeriod = "Hôm nay";
+                    break;
+            }
+
+            // Lấy lịch hẹn TẠO trong khoảng thời gian (theo CreatedAt)
+            var appointments = await _context.Appointments
+                .Where(a => a.CreatedAt.HasValue && a.CreatedAt.Value >= startDate && a.CreatedAt.Value <= endDate)
+                .Include(a => a.Pet)
+                    .ThenInclude(p => p.Customer)
+                .Include(a => a.Service)
+                .Include(a => a.Doctor)
+                .OrderByDescending(a => a.CreatedAt)
+                .ToListAsync();
+
+            var stats = new TodayStatsDto
+            {
+                TotalAppointments = appointments.Count,
+                PendingAppointments = appointments.Count(a => a.Status == 0),
+                ConfirmedAppointments = appointments.Count(a => a.Status == 1),
+                CompletedAppointments = appointments.Count(a => a.Status == 2),
+                CancelledAppointments = appointments.Count(a => a.Status == 3)
+            };
+
+            var appointmentDetails = appointments.Select(a => new AppointmentDetailDto
+            {
+                AppointmentId = a.AppointmentId,
+                Time = a.AppointmentTime,
+                CustomerName = a.Pet?.Customer?.CustomerName ?? "Unknown",
+                PetName = a.Pet?.Name ?? "Unknown",
+                ServiceName = a.Service?.Name ?? "Unknown",
+                DoctorName = a.Doctor?.FullName ?? "Unknown",
+                Status = a.Status ?? 0,
+                StatusText = GetStatusText(a.Status)
+            }).ToList();
+
+            // Lấy thống kê tỉ lệ hoàn thành (30 ngày gần nhất)
+            var last30Days = DateTime.Today.AddDays(-30);
+            var recentAppointments = await _context.Appointments
+                .Where(a => a.CreatedAt.HasValue && a.CreatedAt.Value >= last30Days)
+                .ToListAsync();
+
+            var totalRecent = recentAppointments.Count;
+            var completedRecent = recentAppointments.Count(a => a.Status == 2);
+            var cancelledRecent = recentAppointments.Count(a => a.Status == 3);
+
+            var completionStats = new CompletionStatsDto
+            {
+                TotalAppointments = totalRecent,
+                CompletedAppointments = completedRecent,
+                CancelledAppointments = cancelledRecent,
+                CompletionRate = totalRecent > 0 ? Math.Round((double)completedRecent / totalRecent * 100, 2) : 0,
+                CancellationRate = totalRecent > 0 ? Math.Round((double)cancelledRecent / totalRecent * 100, 2) : 0
+            };
+
+            var result = new SimpleDashboardDto
+            {
+                TodayStats = stats,
+                TodayAppointments = appointmentDetails,
+                CompletionStats = completionStats
+            };
+
+            _logger.LogInformation($"Successfully retrieved flexible dashboard data for period: {displayPeriod}");
+            return Ok(new { period = displayPeriod, data = result });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting flexible dashboard data");
+            return StatusCode(500, new { message = "Lỗi server khi lấy dữ liệu thống kê", error = ex.Message });
+        }
+    }
+
     // GET: api/Dashboard/simple
     [HttpGet("simple")]
     [AuthorizeRole(1)] // Admin only
@@ -370,16 +507,17 @@ public class DashboardController : ControllerBase
     {
         try
         {
-            // Lấy thống kê lịch hẹn hôm nay
-            var today = DateOnly.FromDateTime(DateTime.Today);
+            // Lấy thống kê lịch hẹn TẠO hôm nay (theo CreatedAt)
+            var today = DateTime.Today;
+            var tomorrow = today.AddDays(1);
             
             var todayAppointments = await _context.Appointments
-                .Where(a => a.AppointmentDate == today)
+                .Where(a => a.CreatedAt.HasValue && a.CreatedAt.Value >= today && a.CreatedAt.Value < tomorrow)
                 .Include(a => a.Pet)
                     .ThenInclude(p => p.Customer)
                 .Include(a => a.Service)
                 .Include(a => a.Doctor)
-                .OrderBy(a => a.AppointmentTime)
+                .OrderByDescending(a => a.CreatedAt)
                 .ToListAsync();
 
             var todayStats = new TodayStatsDto
@@ -404,10 +542,10 @@ public class DashboardController : ControllerBase
                 StatusText = GetStatusText(a.Status)
             }).ToList();
 
-            // Lấy thống kê tỉ lệ hoàn thành và hủy (trong 30 ngày gần nhất)
-            var lastMonth = DateOnly.FromDateTime(DateTime.Today.AddDays(-30));
+            // Lấy thống kê tỉ lệ hoàn thành (30 ngày gần nhất)
+            var last30Days = DateTime.Today.AddDays(-30);
             var recentAppointments = await _context.Appointments
-                .Where(a => a.AppointmentDate >= lastMonth && a.AppointmentDate <= today)
+                .Where(a => a.CreatedAt.HasValue && a.CreatedAt.Value >= last30Days)
                 .ToListAsync();
 
             var totalRecentAppointments = recentAppointments.Count;
@@ -446,6 +584,7 @@ public class DashboardController : ControllerBase
 
     private async Task<List<TimeSeriesDataDto>> GetTimeSeriesData(DateTime startDate, DateTime endDate, string period)
     {
+        // Filter by CreatedAt (ngày tạo lịch)
         var appointments = await _context.Appointments
             .Where(a => a.CreatedAt.HasValue && a.CreatedAt.Value >= startDate && a.CreatedAt.Value <= endDate)
             .ToListAsync();
@@ -472,6 +611,7 @@ public class DashboardController : ControllerBase
 
     private async Task<decimal> CalculateRevenue(DateTime startDate, DateTime endDate)
     {
+        // Calculate revenue by CreatedAt (ngày tạo lịch)
         var completedAppointments = await _context.Appointments
             .Where(a => a.CreatedAt.HasValue && a.CreatedAt.Value >= startDate && a.CreatedAt.Value <= endDate && a.Status == 2)
             .Include(a => a.Service)

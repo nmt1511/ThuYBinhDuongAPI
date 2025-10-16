@@ -663,7 +663,7 @@ namespace ThuYBinhDuongAPI.Controllers
         /// </summary>
         [HttpGet("admin")]
         [AuthorizeRole(1)] // Chỉ admin
-        public async Task<ActionResult<IEnumerable<PetResponseDto>>> GetAllPets([FromQuery] int page = 1, [FromQuery] int limit = 10, [FromQuery] int? customerId = null)
+        public async Task<ActionResult<IEnumerable<PetResponseDto>>> GetAllPets([FromQuery] int page = 1, [FromQuery] int limit = 15, [FromQuery] int? customerId = null)
         {
             try
             {
@@ -726,7 +726,7 @@ namespace ThuYBinhDuongAPI.Controllers
         /// </summary>
         [HttpGet("admin/search")]
         [AuthorizeRole(1)] // Chỉ admin
-        public async Task<ActionResult<IEnumerable<PetResponseDto>>> SearchPets([FromQuery] string query, [FromQuery] int page = 1, [FromQuery] int limit = 10)
+        public async Task<ActionResult<IEnumerable<PetResponseDto>>> SearchPets([FromQuery] string query, [FromQuery] int page = 1, [FromQuery] int limit = 15)
         {
             try
             {

@@ -305,7 +305,7 @@ namespace ThuYBinhDuongAPI.Controllers
          /// </summary>
          [HttpGet("list")]
          [AuthorizeRole(1)] // Chỉ Administrator
-         public async Task<IActionResult> GetAllUsers([FromQuery] int page = 1, [FromQuery] int limit = 10, [FromQuery] string? search = null)
+         public async Task<IActionResult> GetAllUsers([FromQuery] int page = 1, [FromQuery] int limit = 15, [FromQuery] string? search = null)
          {
              try
              {

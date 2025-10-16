@@ -34,11 +34,32 @@ API quản lý phòng khám thú y ThuYBinhDuong được xây dựng với ASP.
 
 ## Công nghệ sử dụng
 
-- **Framework**: ASP.NET Core 9.0
-- **Database**: SQL Server với Entity Framework Core
-- **Authentication**: JWT Bearer Token
-- **Documentation**: Swagger/OpenAPI
-- **Architecture**: Clean Architecture, Repository Pattern
+- **Framework: ASP.NET Core 9.0**  
+  Nền tảng phát triển ứng dụng web hiện đại của Microsoft, hỗ trợ xây dựng RESTful API mạnh mẽ, bảo mật, hiệu năng cao, dễ mở rộng và bảo trì.
+
+- **Ngôn ngữ lập trình: C#**  
+  Ngôn ngữ chính của .NET, cú pháp rõ ràng, hỗ trợ lập trình hướng đối tượng, phù hợp cho phát triển backend.
+
+- **Database: SQL Server**  
+  Hệ quản trị cơ sở dữ liệu quan hệ mạnh mẽ, dễ tích hợp với .NET, đảm bảo an toàn và hiệu suất lưu trữ dữ liệu.
+
+- **Entity Framework Core**  
+  ORM (Object-Relational Mapping) giúp thao tác dữ liệu dưới dạng đối tượng, tự động sinh migration, giảm lỗi truy vấn SQL thủ công.
+
+- **JWT Authentication (Microsoft.AspNetCore.Authentication.JwtBearer)**  
+  Cơ chế xác thực hiện đại, bảo mật, không lưu trạng thái, phù hợp cho API, giúp phân quyền truy cập linh hoạt giữa khách hàng và quản trị viên.
+
+- **Swagger/OpenAPI (Swashbuckle.AspNetCore)**  
+  Tự động sinh tài liệu API, hỗ trợ test trực tiếp trên giao diện web, giúp lập trình viên và tester dễ dàng kiểm thử và tích hợp hệ thống.
+
+- **Clean Architecture & Repository Pattern**  
+  Kiến trúc tách biệt rõ ràng giữa các tầng (Controller, Service, Data), giúp code dễ bảo trì, mở rộng, kiểm thử và tái sử dụng.
+
+- **Visual Studio 2022/VS Code**  
+  Công cụ phát triển mạnh mẽ, hỗ trợ debug, quản lý project, tích hợp Git, tăng hiệu suất lập trình.
+
+- **Git**  
+  Hệ thống quản lý phiên bản phân tán, giúp lưu trữ lịch sử thay đổi, làm việc nhóm hiệu quả, dễ dàng rollback khi cần thiết.
 
 ## Yêu cầu hệ thống
 
@@ -332,3 +353,47 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ---
 
 **ThuYBinhDuong Veterinary Clinic API** - Chăm sóc thú cưng với công nghệ hiện đại 🐾 
+
+## Nhật ký thực tập phát triển chức năng
+
+### Tuần 1: Làm quen dự án & công nghệ
+- **Ngày 1:** Nhận đề tài, tìm hiểu tổng quan về phòng khám thú y và yêu cầu dự án.
+- **Ngày 2:** Cài đặt môi trường phát triển (Visual Studio, SQL Server, .NET 9.0 SDK).
+- **Ngày 3:** Đọc tài liệu, phân tích cấu trúc thư mục, tìm hiểu các package sử dụng.
+- **Ngày 4:** Chạy thử project mẫu, làm quen với Swagger UI và Postman.
+- **Ngày 5:** Tìm hiểu về Entity Framework Core, JWT Authentication, Clean Architecture.
+
+### Tuần 2: Chức năng quản lý người dùng
+- **Ngày 6:** Thiết kế database cho bảng User, Customer, phân tích các trường dữ liệu cần thiết.
+- **Ngày 7:** Xây dựng API đăng ký tài khoản khách hàng (`POST /api/user/register`).
+- **Ngày 8:** Xây dựng API đăng nhập, trả về JWT Token (`POST /api/user/login`).
+- **Ngày 9:** Thêm xác thực JWT cho các endpoint cần bảo vệ.
+- **Ngày 10:** Xây dựng API lấy thông tin profile người dùng (`GET /api/user/profile`).
+
+### Tuần 3: Chức năng quản lý thú cưng
+- **Ngày 11:** Thiết kế bảng Pet, xây dựng model và migration.
+- **Ngày 12:** Xây dựng API thêm thú cưng mới (`POST /api/pet`).
+- **Ngày 13:** Xây dựng API lấy danh sách thú cưng của khách hàng (`GET /api/pet`).
+- **Ngày 14:** Xây dựng API cập nhật, xóa thú cưng (`PUT`, `DELETE /api/pet/{id}`).
+- **Ngày 15:** Thêm validation: không xóa thú cưng có lịch hẹn đang chờ/xác nhận, tính tuổi tự động.
+
+### Tuần 4: Chức năng quản lý lịch hẹn
+- **Ngày 16:** Thiết kế bảng Appointment, xây dựng migration.
+- **Ngày 17:** Xây dựng API đặt lịch hẹn mới (`POST /api/appointment`).
+- **Ngày 18:** Xây dựng API lấy danh sách, chi tiết lịch hẹn (`GET /api/appointment`, `/api/appointment/{id}`).
+- **Ngày 19:** Xây dựng API hủy lịch hẹn (`DELETE /api/appointment/{id}`), kiểm tra trạng thái hợp lệ.
+- **Ngày 20:** Thêm validation: không đặt lịch trong quá khứ, không trùng lịch, chỉ được hủy khi status = 0.
+
+### Tuần 5: Chức năng quản lý bác sĩ, dịch vụ, tin tức
+- **Ngày 21:** Thiết kế bảng Doctor, Service, News, tạo migration.
+- **Ngày 22:** Xây dựng API danh sách bác sĩ (`GET /api/doctor`).
+- **Ngày 23:** Xây dựng API danh sách dịch vụ, tìm kiếm, lọc (`GET /api/service`).
+- **Ngày 24:** Xây dựng API danh sách tin tức, tìm kiếm, phân trang (`GET /api/news`).
+- **Ngày 25:** Hoàn thiện các chức năng hỗ trợ cho khách hàng và quản trị viên.
+
+### Tuần 6: Hoàn thiện, kiểm thử & viết tài liệu
+- **Ngày 26:** Kiểm thử API bằng Swagger UI, Postman, sửa lỗi phát hiện được.
+- **Ngày 27:** Viết tài liệu hướng dẫn sử dụng API, mô tả các endpoint, tham số, ví dụ request/response.
+- **Ngày 28:** Tổng hợp kinh nghiệm, tối ưu code, bổ sung kiểm tra bảo mật, hoàn thiện báo cáo thực tập.
+
+--- 

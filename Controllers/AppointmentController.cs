@@ -16,9 +16,14 @@ namespace ThuYBinhDuongAPI.Controllers
         private readonly ThuybinhduongContext _context;
         private readonly IJwtService _jwtService;
         private readonly IEmailService _emailService;
+
         private readonly ILogger<AppointmentController> _logger;
 
-        public AppointmentController(ThuybinhduongContext context, IJwtService jwtService, IEmailService emailService, ILogger<AppointmentController> logger)
+        public AppointmentController(
+            ThuybinhduongContext context, 
+            IJwtService jwtService, 
+            IEmailService emailService, 
+            ILogger<AppointmentController> logger)
         {
             _context = context;
             _jwtService = jwtService;
@@ -393,7 +398,7 @@ namespace ThuYBinhDuongAPI.Controllers
         /// </summary>
         [HttpGet("admin")]
         [AuthorizeRole(1)] // Chỉ admin
-        public async Task<ActionResult<IEnumerable<AppointmentResponseDto>>> GetAllAppointments([FromQuery] int page = 1, [FromQuery] int limit = 10, [FromQuery] int? status = null, [FromQuery] string? date = null)
+        public async Task<ActionResult<IEnumerable<AppointmentResponseDto>>> GetAllAppointments([FromQuery] int page = 1, [FromQuery] int limit = 15, [FromQuery] int? status = null, [FromQuery] string? date = null)
         {
             try
             {
@@ -473,7 +478,7 @@ namespace ThuYBinhDuongAPI.Controllers
         /// </summary>
         [HttpGet("admin/search")]
         [AuthorizeRole(1)] // Chỉ admin
-        public async Task<ActionResult<IEnumerable<AppointmentResponseDto>>> SearchAppointments([FromQuery] string query, [FromQuery] int page = 1, [FromQuery] int limit = 10)
+        public async Task<ActionResult<IEnumerable<AppointmentResponseDto>>> SearchAppointments([FromQuery] string query, [FromQuery] int page = 1, [FromQuery] int limit = 15)
         {
             try
             {
@@ -872,7 +877,6 @@ namespace ThuYBinhDuongAPI.Controllers
                     catch (Exception emailEx)
                     {
                         _logger.LogError(emailEx, "Failed to send confirmation email for appointment {AppointmentId}", id);
-                        // Không throw exception vì việc gửi email không ảnh hưởng đến logic chính
                     }
                 }
                 // Gửi email thông báo thay đổi trạng thái cho các trường hợp khác
@@ -898,7 +902,6 @@ namespace ThuYBinhDuongAPI.Controllers
                     catch (Exception emailEx)
                     {
                         _logger.LogError(emailEx, "Failed to send status change email for appointment {AppointmentId}", id);
-                        // Không throw exception vì việc gửi email không ảnh hưởng đến logic chính
                     }
                 }
 

@@ -37,6 +37,8 @@ public partial class ThuybinhduongContext : DbContext
 
     public virtual DbSet<User> Users { get; set; }
 
+    public virtual DbSet<DeviceToken> DeviceTokens { get; set; }
+
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
         // Connection string được cấu hình thông qua dependency injection trong Program.cs
@@ -278,6 +280,43 @@ public partial class ThuybinhduongContext : DbContext
             entity.Property(e => e.Username)
                 .HasMaxLength(255)
                 .HasColumnName("username");
+        });
+
+        modelBuilder.Entity<DeviceToken>(entity =>
+        {
+            entity.HasKey(e => e.TokenId);
+            
+            entity.ToTable("DeviceToken");
+
+            entity.HasIndex(e => e.UserId, "IDX_DeviceToken_UserId");
+            entity.HasIndex(e => e.IsActive, "IDX_DeviceToken_IsActive");
+            entity.HasIndex(e => new { e.UserId, e.IsActive }, "IDX_DeviceToken_UserId_IsActive");
+
+            entity.Property(e => e.TokenId).HasColumnName("token_id");
+            entity.Property(e => e.UserId).HasColumnName("user_id");
+            entity.Property(e => e.DeviceTokenValue)
+                .HasMaxLength(500)
+                .HasColumnName("device_token");
+            entity.Property(e => e.Platform)
+                .HasMaxLength(20)
+                .HasColumnName("platform");
+            entity.Property(e => e.IsActive)
+                .HasDefaultValue(true)
+                .HasColumnName("is_active");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("(getdate())")
+                .HasColumnType("datetime")
+                .HasColumnName("created_at");
+            entity.Property(e => e.UpdatedAt)
+                .HasDefaultValueSql("(getdate())")
+                .HasColumnType("datetime")
+                .HasColumnName("updated_at");
+
+            entity.HasOne(d => d.User)
+                .WithMany()
+                .HasForeignKey(d => d.UserId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("FK_DeviceToken_User");
         });
 
         OnModelCreatingPartial(modelBuilder);

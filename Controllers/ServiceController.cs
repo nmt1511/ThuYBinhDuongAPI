@@ -267,7 +267,7 @@ namespace ThuYBinhDuongAPI.Controllers
         /// </summary>
         [HttpGet("admin")]
         [AuthorizeRole(1)] // Chỉ admin
-        public async Task<ActionResult<IEnumerable<ServiceResponseDto>>> GetAllServicesAdmin([FromQuery] int page = 1, [FromQuery] int limit = 10, [FromQuery] bool? isActive = null)
+        public async Task<ActionResult<IEnumerable<ServiceResponseDto>>> GetAllServicesAdmin([FromQuery] int page = 1, [FromQuery] int limit = 15, [FromQuery] bool? isActive = null)
         {
             try
             {
@@ -327,7 +327,7 @@ namespace ThuYBinhDuongAPI.Controllers
         /// </summary>
         [HttpGet("admin/search")]
         [AuthorizeRole(1)] // Chỉ admin
-        public async Task<ActionResult<IEnumerable<ServiceResponseDto>>> SearchServicesAdmin([FromQuery] string query, [FromQuery] int page = 1, [FromQuery] int limit = 10)
+        public async Task<ActionResult<IEnumerable<ServiceResponseDto>>> SearchServicesAdmin([FromQuery] string query, [FromQuery] int page = 1, [FromQuery] int limit = 15)
         {
             try
             {

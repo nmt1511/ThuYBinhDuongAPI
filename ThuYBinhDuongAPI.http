@@ -1,4 +1,4 @@
-@ThuYBinhDuongAPI_HostAddress = http://localhost:5074
+@ThuYBinhDuongAPI_HostAddress = http://192.168.1.13:5074
 
 GET {{ThuYBinhDuongAPI_HostAddress}}/weatherforecast/
 Accept: application/json

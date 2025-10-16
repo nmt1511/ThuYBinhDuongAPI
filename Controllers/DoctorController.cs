@@ -119,7 +119,7 @@ namespace ThuYBinhDuongAPI.Controllers
         /// </summary>
         [HttpGet("admin")]
         [AuthorizeRole(1)] // Chỉ admin
-        public async Task<ActionResult<IEnumerable<DoctorResponseDto>>> GetAllDoctorsAdmin([FromQuery] int page = 1, [FromQuery] int limit = 10)
+        public async Task<ActionResult<IEnumerable<DoctorResponseDto>>> GetAllDoctorsAdmin([FromQuery] int page = 1, [FromQuery] int limit = 15)
         {
             try
             {
@@ -167,7 +167,7 @@ namespace ThuYBinhDuongAPI.Controllers
         /// </summary>
         [HttpGet("admin/search")]
         [AuthorizeRole(1)] // Chỉ admin
-        public async Task<ActionResult<IEnumerable<DoctorResponseDto>>> SearchDoctorsAdmin([FromQuery] string query, [FromQuery] int page = 1, [FromQuery] int limit = 10)
+        public async Task<ActionResult<IEnumerable<DoctorResponseDto>>> SearchDoctorsAdmin([FromQuery] string query, [FromQuery] int page = 1, [FromQuery] int limit = 15)
         {
             try
             {

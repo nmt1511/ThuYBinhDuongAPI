@@ -199,12 +199,18 @@ namespace ThuYBinhDuongAPI.Controllers
                     return NotFound(new { message = "Không tìm thấy phòng chat" });
                 }
 
-                var skip = (page - 1) * limit;
+                // Lấy tổng số tin nhắn để tính toán skip
+                var totalMessages = await _context.ChatMessages.CountAsync(cm => cm.RoomId == roomId);
+                
+                // Tính toán để lấy N tin nhắn mới nhất
+                // Ví dụ: Có 500 tin nhắn, muốn lấy 200 tin nhắn mới nhất -> skip = 500 - 200 = 300
+                var skip = Math.Max(0, totalMessages - limit);
+                
                 var messages = await _context.ChatMessages
                     .Where(cm => cm.RoomId == roomId)
-                    .OrderBy(cm => cm.CreatedAt)
-                    .Skip(skip)
-                    .Take(limit)
+                    .OrderBy(cm => cm.CreatedAt) // Vẫn sắp xếp tăng dần để hiển thị đúng thứ tự
+                    .Skip(skip) // Bỏ qua các tin nhắn cũ
+                    .Take(limit) // Lấy N tin nhắn mới nhất
                     .Select(cm => new
                     {
                         messageId = cm.MessageId,
@@ -641,12 +647,17 @@ namespace ThuYBinhDuongAPI.Controllers
                     return NotFound(new { message = "Không tìm thấy phòng chat" });
                 }
 
-                var skip = (page - 1) * limit;
+                // Lấy tổng số tin nhắn để tính toán skip (giống customer endpoint)
+                var totalMessages = await _context.ChatMessages.CountAsync(cm => cm.RoomId == roomId);
+                
+                // Tính toán để lấy N tin nhắn mới nhất
+                var skip = Math.Max(0, totalMessages - limit);
+                
                 var messages = await _context.ChatMessages
                     .Where(cm => cm.RoomId == roomId)
-                    .OrderBy(cm => cm.CreatedAt)
-                    .Skip(skip)
-                    .Take(limit)
+                    .OrderBy(cm => cm.CreatedAt) // Vẫn sắp xếp tăng dần để hiển thị đúng thứ tự
+                    .Skip(skip) // Bỏ qua các tin nhắn cũ
+                    .Take(limit) // Lấy N tin nhắn mới nhất
                     .Select(cm => new
                     {
                         messageId = cm.MessageId,
