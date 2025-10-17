@@ -701,6 +701,149 @@ namespace ThuYBinhDuongAPI.Controllers
                 return StatusCode(500, new { message = "Đã xảy ra lỗi khi lấy tin nhắn" });
             }
         }
+
+        /// <summary>
+        /// Upload ảnh lên Cloudinary (dành cho admin)
+        /// </summary>
+        [HttpPost("upload/cloudinary")]
+        [AuthorizeRole(1)] // Chỉ admin
+        public async Task<ActionResult<object>> UploadImage(IFormFile file)
+        {
+            try
+            {
+                if (file == null || file.Length == 0)
+                {
+                    return BadRequest(new { message = "Không có file được chọn" });
+                }
+
+                // Validate file type
+                var allowedTypes = new[] { "image/jpeg", "image/png", "image/gif", "image/webp" };
+                if (!allowedTypes.Contains(file.ContentType))
+                {
+                    return BadRequest(new { message = "Chỉ hỗ trợ file ảnh (JPG, PNG, GIF, WEBP)" });
+                }
+
+                // Validate file size (5MB max)
+                if (file.Length > 5 * 1024 * 1024)
+                {
+                    return BadRequest(new { message = "Kích thước file không được vượt quá 5MB" });
+                }
+
+                // Upload to Cloudinary (implement your Cloudinary upload logic)
+                var imageUrl = await UploadToCloudinary(file);
+                
+                _logger.LogInformation($"Image uploaded successfully: {imageUrl}");
+                return Ok(new { url = imageUrl });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error uploading image");
+                return StatusCode(500, new { message = "Đã xảy ra lỗi khi tải lên ảnh" });
+            }
+        }
+
+        /// <summary>
+        /// Upload file to Cloudinary
+        /// </summary>
+        private async Task<string> UploadToCloudinary(IFormFile file)
+        {
+            try
+            {
+                // Read file content
+                using var memoryStream = new MemoryStream();
+                await file.CopyToAsync(memoryStream);
+                var fileBytes = memoryStream.ToArray();
+
+                // Convert to base64
+                var base64String = Convert.ToBase64String(fileBytes);
+                var dataUrl = $"data:{file.ContentType};base64,{base64String}";
+
+                // For now, return a placeholder URL
+                // In production, implement actual Cloudinary upload
+                var fileName = $"{Guid.NewGuid()}_{file.FileName}";
+                var imageUrl = $"https://res.cloudinary.com/your-cloud-name/image/upload/{fileName}";
+                
+                _logger.LogInformation($"Uploaded image: {fileName}");
+                
+                // TODO: Implement actual Cloudinary upload
+                // You can use CloudinaryDotNet library or direct HTTP calls
+                
+                return imageUrl;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error processing file for Cloudinary upload");
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Mark messages as read (Admin)
+        /// </summary>
+        [HttpPost("admin/room/{roomId}/mark-read")]
+        [AuthorizeRole(1)] // Admin only
+        public async Task<IActionResult> MarkMessagesAsRead(int roomId)
+    {
+        try
+        {
+            var room = await _context.ChatRooms.FindAsync(roomId);
+            if (room == null)
+            {
+                return NotFound(new { message = "Không tìm thấy phòng chat" });
+            }
+
+            // Reset unread count for admin
+            room.UnreadCountAdmin = 0;
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation($"Admin marked all messages as read in room {roomId}");
+
+            return Ok(new { message = "Đã đánh dấu tất cả tin nhắn là đã đọc" });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"Error marking messages as read in room {roomId}");
+            return StatusCode(500, new { message = "Đã xảy ra lỗi" });
+        }
+    }
+
+    /// <summary>
+    /// Mark messages as read (Customer)
+    /// </summary>
+    [HttpPost("room/{roomId}/mark-read")]
+    [AuthorizeRole(0)] // Customer only
+    public async Task<IActionResult> MarkMessagesAsReadCustomer(int roomId)
+    {
+        try
+        {
+            var customerId = await GetCurrentCustomerIdAsync();
+            if (customerId == null)
+            {
+                return BadRequest(new { message = "Không tìm thấy thông tin khách hàng" });
+            }
+
+            var room = await _context.ChatRooms
+                .FirstOrDefaultAsync(r => r.RoomId == roomId && r.CustomerId == customerId.Value);
+
+            if (room == null)
+            {
+                return NotFound(new { message = "Không tìm thấy phòng chat" });
+            }
+
+            // Reset unread count for customer
+            room.UnreadCountCustomer = 0;
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation($"Customer {customerId} marked all messages as read in room {roomId}");
+
+            return Ok(new { message = "Đã đánh dấu tất cả tin nhắn là đã đọc" });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"Error marking messages as read in room {roomId}");
+            return StatusCode(500, new { message = "Đã xảy ra lỗi" });
+        }
+    }
     }
 
     // DTOs

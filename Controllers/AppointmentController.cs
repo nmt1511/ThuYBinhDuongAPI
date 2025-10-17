@@ -177,6 +177,80 @@ namespace ThuYBinhDuongAPI.Controllers
         }
 
         /// <summary>
+        /// Lấy danh sách lịch hẹn theo thú cưng (thuộc về khách hàng hiện tại)
+        /// </summary>
+        /// <param name="petId">PetId của thú cưng</param>
+        /// <param name="onlyCompleted">Nếu true, chỉ lấy lịch hẹn đã hoàn thành (status = 2)</param>
+        [HttpGet("pet/{petId}")]
+        [AuthorizeRole(0)] // Chỉ khách hàng
+        public async Task<ActionResult<IEnumerable<AppointmentResponseDto>>> GetAppointmentsByPet(int petId, [FromQuery] bool onlyCompleted = false)
+        {
+            try
+            {
+                var customerId = await GetCurrentCustomerIdAsync();
+                if (customerId == null)
+                {
+                    return BadRequest(new { message = "Không tìm thấy thông tin khách hàng" });
+                }
+
+                // Xác thực thú cưng thuộc về khách hàng hiện tại
+                var pet = await _context.Pets.FirstOrDefaultAsync(p => p.PetId == petId && p.CustomerId == customerId.Value);
+                if (pet == null)
+                {
+                    return NotFound(new { message = "Thú cưng không tồn tại hoặc không thuộc về bạn" });
+                }
+
+                var query = _context.Appointments
+                    .Include(a => a.Pet)
+                        .ThenInclude(p => p.Customer)
+                    .Include(a => a.Doctor)
+                    .Include(a => a.Service)
+                    .Where(a => a.PetId == petId);
+
+                if (onlyCompleted)
+                {
+                    query = query.Where(a => a.Status == 2); // 2 = Hoàn thành
+                }
+
+                var appointments = await query
+                    .OrderByDescending(a => a.AppointmentDate)
+                    .ThenByDescending(a => a.AppointmentTime)
+                    .Select(a => new AppointmentResponseDto
+                    {
+                        AppointmentId = a.AppointmentId,
+                        PetId = a.PetId,
+                        DoctorId = a.DoctorId,
+                        ServiceId = a.ServiceId,
+                        AppointmentDate = a.AppointmentDate,
+                        AppointmentTime = a.AppointmentTime,
+                        Weight = a.Weight,
+                        Age = a.Age,
+                        IsNewPet = a.IsNewPet,
+                        Status = a.Status,
+                        Notes = a.Notes,
+                        CreatedAt = a.CreatedAt,
+                        PetName = a.Pet.Name,
+                        CustomerName = a.Pet.Customer.CustomerName,
+                        DoctorName = a.Doctor != null ? a.Doctor.FullName : null,
+                        ServiceName = a.Service.Name,
+                        ServiceDescription = a.Service.Description,
+                        StatusText = GetStatusText(a.Status),
+                        CanCancel = a.Status == 0,
+                        VaccinatedVaccines = a.Pet.VaccinatedVaccines
+                    })
+                    .ToListAsync();
+
+                _logger.LogInformation($"Customer {customerId} retrieved {appointments.Count} appointments for pet {petId} (onlyCompleted={onlyCompleted})");
+                return Ok(appointments); // Trả về mảng để client dễ xử lý
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving appointments by pet {PetId}", petId);
+                return StatusCode(500, new { message = "Đã xảy ra lỗi khi lấy danh sách lịch hẹn theo thú cưng" });
+            }
+        }
+
+        /// <summary>
         /// Đặt lịch hẹn mới
         /// </summary>
         [HttpPost]

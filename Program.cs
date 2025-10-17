@@ -4,6 +4,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using ThuYBinhDuongAPI.Models;
 using ThuYBinhDuongAPI.Services;
+using CloudinaryDotNet;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -12,6 +13,12 @@ builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, relo
 
 // Thêm các services vào container
 builder.Services.AddControllers();
+
+// Cấu hình file upload size limit (10MB)
+builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(options =>
+{
+    options.MultipartBodyLengthLimit = 10 * 1024 * 1024; // 10MB
+});
 
 // Thêm Entity Framework cho cơ sở dữ liệu
 builder.Services.AddDbContext<ThuybinhduongContext>(options =>
@@ -22,6 +29,15 @@ builder.Services.AddScoped<IJwtService, JwtService>();
 
 // Thêm Email Service
 builder.Services.AddScoped<IEmailService, EmailService>();
+
+// Cấu hình Cloudinary
+var cloudinarySettings = builder.Configuration.GetSection("Cloudinary");
+var cloudinaryAccount = new Account(
+    cloudinarySettings["CloudName"],
+    cloudinarySettings["ApiKey"],
+    cloudinarySettings["ApiSecret"]
+);
+builder.Services.AddSingleton(new Cloudinary(cloudinaryAccount));
 
 // Cấu hình JWT Authentication
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
