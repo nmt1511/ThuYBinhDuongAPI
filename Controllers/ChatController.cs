@@ -134,7 +134,7 @@ namespace ThuYBinhDuongAPI.Controllers
                 room.LastMessage = dto.MessageContent.Length > 100 ? 
                     dto.MessageContent.Substring(0, 100) + "..." : dto.MessageContent;
                 room.LastMessageAt = vietnamTime;
-                room.UnreadCountAdmin++; // Tăng số tin nhắn chưa đọc của admin
+                // Không tăng UnreadCountAdmin ở đây vì sẽ tăng trong raw SQL
 
                 // Lưu message trước
                 await _context.SaveChangesAsync();

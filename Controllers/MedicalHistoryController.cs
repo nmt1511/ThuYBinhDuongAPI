@@ -201,13 +201,39 @@ namespace ThuYBinhDuongAPI.Controllers
                     return BadRequest(new { message = "Không tìm thấy thú cưng" });
                 }
 
+                // Kiểm tra doctor nếu có
+                if (createDto.DoctorId.HasValue)
+                {
+                    var doctor = await _context.Doctors.FindAsync(createDto.DoctorId.Value);
+                    if (doctor == null)
+                    {
+                        return BadRequest(new { message = "Không tìm thấy bác sĩ" });
+                    }
+                }
+
+                // Kiểm tra next service nếu có
+                if (createDto.NextServiceId.HasValue)
+                {
+                    var nextService = await _context.Services.FindAsync(createDto.NextServiceId.Value);
+                    if (nextService == null)
+                    {
+                        return BadRequest(new { message = "Không tìm thấy dịch vụ tái khám" });
+                    }
+                }
+
                 var history = new MedicalHistory
                 {
                     PetId = createDto.PetId,
+                    DoctorId = createDto.DoctorId,
+                    AppointmentId = createDto.AppointmentId,
                     RecordDate = createDto.RecordDate ?? DateTime.Now,
                     Description = createDto.Description?.Trim(),
                     Treatment = createDto.Treatment?.Trim(),
-                    Notes = createDto.Notes?.Trim()
+                    Notes = createDto.Notes?.Trim(),
+                    NextAppointmentDate = createDto.NextAppointmentDate,
+                    NextServiceId = createDto.NextServiceId,
+                    ReminderNote = createDto.ReminderNote?.Trim(),
+                    ReminderSent = false
                 };
 
                 _context.MedicalHistories.Add(history);
@@ -217,10 +243,16 @@ namespace ThuYBinhDuongAPI.Controllers
                 {
                     history.HistoryId,
                     history.PetId,
+                    history.DoctorId,
+                    history.AppointmentId,
                     history.RecordDate,
                     history.Description,
                     history.Treatment,
                     history.Notes,
+                    history.NextAppointmentDate,
+                    history.NextServiceId,
+                    history.ReminderNote,
+                    history.ReminderSent,
                     Pet = new
                     {
                         pet.PetId,

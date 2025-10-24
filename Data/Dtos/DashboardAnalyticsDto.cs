@@ -90,6 +90,41 @@ public class SimpleDashboardDto
     public TodayStatsDto TodayStats { get; set; } = new();
     public List<AppointmentDetailDto> TodayAppointments { get; set; } = new();
     public CompletionStatsDto CompletionStats { get; set; } = new();
+    public RevenueStatsDto RevenueStats { get; set; } = new();
+}
+
+public class RevenueStatsDto
+{
+    public decimal TotalRevenue { get; set; }
+    public decimal AverageRevenue { get; set; }
+    public decimal RevenueGrowth { get; set; }
+    public RevenueComparisonDto? Comparison { get; set; }
+}
+
+public class RevenueComparisonDto
+{
+    public decimal CurrentPeriodRevenue { get; set; }
+    public decimal PreviousPeriodRevenue { get; set; }
+    public decimal RevenueDifference { get; set; }
+    public decimal GrowthPercentage { get; set; }
+    public string CurrentPeriodLabel { get; set; } = string.Empty;
+    public string PreviousPeriodLabel { get; set; } = string.Empty;
+}
+
+public class MonthlyRevenueDto
+{
+    public int Month { get; set; }
+    public string MonthName { get; set; } = string.Empty;
+    public decimal Revenue { get; set; }
+    public decimal GrowthPercentage { get; set; }
+}
+
+public class YearlyRevenueStatsDto
+{
+    public int Year { get; set; }
+    public List<MonthlyRevenueDto> MonthlyData { get; set; } = new();
+    public decimal TotalRevenue { get; set; }
+    public decimal AverageMonthlyRevenue { get; set; }
 }
 
 public class TodayStatsDto
@@ -106,8 +141,12 @@ public class CompletionStatsDto
     public int TotalAppointments { get; set; }
     public int CompletedAppointments { get; set; }
     public int CancelledAppointments { get; set; }
+    public int PendingAppointments { get; set; }
+    public int ConfirmedAppointments { get; set; }
     public double CompletionRate { get; set; }
     public double CancellationRate { get; set; }
+    public double PendingRate { get; set; }
+    public double ConfirmedRate { get; set; }
 }
 
 public class AppointmentDetailDto

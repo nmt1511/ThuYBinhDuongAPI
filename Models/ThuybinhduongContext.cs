@@ -172,11 +172,32 @@ public partial class ThuybinhduongContext : DbContext
                 .HasColumnType("datetime")
                 .HasColumnName("record_date");
             entity.Property(e => e.Treatment).HasColumnName("treatment");
+            
+            // Thêm configuration cho các cột mới
+            entity.Property(e => e.DoctorId).HasColumnName("doctor_id");
+            entity.Property(e => e.AppointmentId).HasColumnName("appointment_id");
+            entity.Property(e => e.NextAppointmentDate).HasColumnName("next_appointment_date");
+            entity.Property(e => e.NextServiceId).HasColumnName("next_service_id");
+            entity.Property(e => e.ReminderNote).HasColumnName("reminder_note");
+            entity.Property(e => e.ReminderSent).HasColumnName("reminder_sent");
 
             entity.HasOne(d => d.Pet).WithMany(p => p.MedicalHistories)
                 .HasForeignKey(d => d.PetId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK__MedicalHi__pet_i__0880433F");
+                
+            // Thêm foreign key relationships cho các cột mới
+            entity.HasOne(d => d.Doctor).WithMany()
+                .HasForeignKey(d => d.DoctorId)
+                .HasConstraintName("FK_MedicalHistory_Doctor");
+                
+            entity.HasOne(d => d.Appointment).WithMany()
+                .HasForeignKey(d => d.AppointmentId)
+                .HasConstraintName("FK_MedicalHistory_Appointment");
+                
+            entity.HasOne(d => d.NextService).WithMany()
+                .HasForeignKey(d => d.NextServiceId)
+                .HasConstraintName("FK_MedicalHistory_NextService");
         });
 
         modelBuilder.Entity<News>(entity =>

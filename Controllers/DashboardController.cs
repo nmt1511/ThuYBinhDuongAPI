@@ -367,7 +367,7 @@ public class DashboardController : ControllerBase
     [HttpGet("flexible")]
     [AuthorizeRole(1)] // Admin only
     public async Task<ActionResult<SimpleDashboardDto>> GetFlexibleDashboard(
-        [FromQuery] string filterType = "today", // today, specific-date, last-7-days, this-week, last-week, specific-month
+        [FromQuery] string filterType = "today", // today, specific-date, last-7-days, last-30-days, this-week, last-week, specific-month
         [FromQuery] string? specificDate = null, // Format: yyyy-MM-dd
         [FromQuery] int? month = null, // 1-12
         [FromQuery] int? year = null) // yyyy
@@ -394,6 +394,12 @@ public class DashboardController : ControllerBase
                     endDate = DateTime.Today.AddDays(1).AddSeconds(-1);
                     startDate = DateTime.Today.AddDays(-6); // 7 ngày bao gồm hôm nay
                     displayPeriod = "7 ngày gần nhất";
+                    break;
+
+                case "last-30-days":
+                    endDate = DateTime.Today.AddDays(1).AddSeconds(-1);
+                    startDate = DateTime.Today.AddDays(-29); // 30 ngày bao gồm hôm nay
+                    displayPeriod = "30 ngày gần nhất";
                     break;
 
                 case "this-week":
@@ -464,30 +470,135 @@ public class DashboardController : ControllerBase
                 StatusText = GetStatusText(a.Status)
             }).ToList();
 
-            // Lấy thống kê tỉ lệ hoàn thành (30 ngày gần nhất)
-            var last30Days = DateTime.Today.AddDays(-30);
-            var recentAppointments = await _context.Appointments
-                .Where(a => a.CreatedAt.HasValue && a.CreatedAt.Value >= last30Days)
-                .ToListAsync();
-
-            var totalRecent = recentAppointments.Count;
-            var completedRecent = recentAppointments.Count(a => a.Status == 2);
-            var cancelledRecent = recentAppointments.Count(a => a.Status == 3);
+            // Lấy thống kê tỉ lệ hoàn thành THEO FILTER ĐÃ CHỌN (sử dụng cùng startDate/endDate)
+            // Sử dụng appointments đã lấy ở trên để tính completion stats
+            var totalRecent = appointments.Count;
+            var completedRecent = appointments.Count(a => a.Status == 2);
+            var cancelledRecent = appointments.Count(a => a.Status == 3);
+            var pendingRecent = appointments.Count(a => a.Status == 0);
+            var confirmedRecent = appointments.Count(a => a.Status == 1);
 
             var completionStats = new CompletionStatsDto
             {
                 TotalAppointments = totalRecent,
                 CompletedAppointments = completedRecent,
                 CancelledAppointments = cancelledRecent,
+                PendingAppointments = pendingRecent,
+                ConfirmedAppointments = confirmedRecent,
                 CompletionRate = totalRecent > 0 ? Math.Round((double)completedRecent / totalRecent * 100, 2) : 0,
-                CancellationRate = totalRecent > 0 ? Math.Round((double)cancelledRecent / totalRecent * 100, 2) : 0
+                CancellationRate = totalRecent > 0 ? Math.Round((double)cancelledRecent / totalRecent * 100, 2) : 0,
+                PendingRate = totalRecent > 0 ? Math.Round((double)pendingRecent / totalRecent * 100, 2) : 0,
+                ConfirmedRate = totalRecent > 0 ? Math.Round((double)confirmedRecent / totalRecent * 100, 2) : 0
+            };
+
+            // Tính toán doanh thu
+            var totalRevenue = await CalculateRevenue(startDate, endDate);
+            var averageRevenue = completedRecent > 0 ? totalRevenue / completedRecent : 0;
+
+            // Tính tăng trưởng doanh thu (so với kỳ trước) - logic cải tiến
+            DateTime previousStartDate;
+            DateTime previousEndDate;
+            string currentPeriodLabel;
+            string previousPeriodLabel;
+            
+            var periodDays = (int)(endDate - startDate).TotalDays + 1;
+            
+            switch (filterType)
+            {
+                case "today":
+                    // Hôm nay so với hôm qua
+                    previousStartDate = startDate.AddDays(-1);
+                    previousEndDate = endDate.AddDays(-1);
+                    currentPeriodLabel = "Hôm nay";
+                    previousPeriodLabel = "Hôm qua";
+                    break;
+                    
+                case "last-7-days":
+                    // 7 ngày gần nhất so với 7 ngày trước đó
+                    previousStartDate = startDate.AddDays(-7);
+                    previousEndDate = startDate.AddSeconds(-1);
+                    currentPeriodLabel = "7 ngày gần nhất";
+                    previousPeriodLabel = "7 ngày trước đó";
+                    break;
+                    
+                case "last-30-days":
+                    // 30 ngày gần nhất so với 30 ngày trước đó
+                    previousStartDate = startDate.AddDays(-30);
+                    previousEndDate = startDate.AddSeconds(-1);
+                    currentPeriodLabel = "30 ngày gần nhất";
+                    previousPeriodLabel = "30 ngày trước đó";
+                    break;
+                    
+                case "this-week":
+                    // Tuần này so với tuần trước
+                    previousStartDate = startDate.AddDays(-7);
+                    previousEndDate = endDate.AddDays(-7);
+                    currentPeriodLabel = "Tuần này";
+                    previousPeriodLabel = "Tuần trước";
+                    break;
+                    
+                case "last-week":
+                    // Tuần trước so với tuần trước nữa
+                    previousStartDate = startDate.AddDays(-7);
+                    previousEndDate = endDate.AddDays(-7);
+                    currentPeriodLabel = "Tuần trước";
+                    previousPeriodLabel = "2 tuần trước";
+                    break;
+                    
+                case "specific-month":
+                    // Tháng được chọn so với tháng trước đó
+                    previousStartDate = startDate.AddMonths(-1);
+                    previousEndDate = endDate.AddMonths(-1);
+                    currentPeriodLabel = $"Tháng {month}/{year ?? DateTime.Today.Year}";
+                    var prevMonth = startDate.AddMonths(-1);
+                    previousPeriodLabel = $"Tháng {prevMonth.Month}/{prevMonth.Year}";
+                    break;
+                    
+                case "specific-date":
+                    // Ngày cụ thể so với ngày hôm trước
+                    previousStartDate = startDate.AddDays(-1);
+                    previousEndDate = endDate.AddDays(-1);
+                    currentPeriodLabel = startDate.ToString("dd/MM/yyyy");
+                    previousPeriodLabel = previousStartDate.ToString("dd/MM/yyyy");
+                    break;
+                    
+                default:
+                    // Mặc định: so với kỳ trước cùng độ dài
+                    previousStartDate = startDate.AddDays(-periodDays);
+                    previousEndDate = startDate.AddSeconds(-1);
+                    currentPeriodLabel = "Kỳ hiện tại";
+                    previousPeriodLabel = "Kỳ trước";
+                    break;
+            }
+            
+            var previousRevenue = await CalculateRevenue(previousStartDate, previousEndDate);
+            var revenueDifference = totalRevenue - previousRevenue;
+            var revenueGrowth = previousRevenue > 0 
+                ? Math.Round((double)(revenueDifference / previousRevenue * 100), 2) 
+                : (totalRevenue > 0 ? 100 : 0);
+
+            var revenueStats = new RevenueStatsDto
+            {
+                TotalRevenue = totalRevenue,
+                AverageRevenue = Math.Round(averageRevenue, 2),
+                RevenueGrowth = (decimal)revenueGrowth,
+                Comparison = new RevenueComparisonDto
+                {
+                    CurrentPeriodRevenue = totalRevenue,
+                    PreviousPeriodRevenue = previousRevenue,
+                    RevenueDifference = revenueDifference,
+                    GrowthPercentage = (decimal)revenueGrowth,
+                    CurrentPeriodLabel = currentPeriodLabel,
+                    PreviousPeriodLabel = previousPeriodLabel
+                }
             };
 
             var result = new SimpleDashboardDto
             {
                 TodayStats = stats,
                 TodayAppointments = appointmentDetails,
-                CompletionStats = completionStats
+                CompletionStats = completionStats,
+                RevenueStats = revenueStats
             };
 
             _logger.LogInformation($"Successfully retrieved flexible dashboard data for period: {displayPeriod}");
@@ -510,7 +621,7 @@ public class DashboardController : ControllerBase
             // Lấy thống kê lịch hẹn TẠO hôm nay (theo CreatedAt)
             var today = DateTime.Today;
             var tomorrow = today.AddDays(1);
-            
+
             var todayAppointments = await _context.Appointments
                 .Where(a => a.CreatedAt.HasValue && a.CreatedAt.Value >= today && a.CreatedAt.Value < tomorrow)
                 .Include(a => a.Pet)
@@ -557,11 +668,11 @@ public class DashboardController : ControllerBase
                 TotalAppointments = totalRecentAppointments,
                 CompletedAppointments = completedRecentAppointments,
                 CancelledAppointments = cancelledRecentAppointments,
-                CompletionRate = totalRecentAppointments > 0 
-                    ? Math.Round((double)completedRecentAppointments / totalRecentAppointments * 100, 2) 
+                CompletionRate = totalRecentAppointments > 0
+                    ? Math.Round((double)completedRecentAppointments / totalRecentAppointments * 100, 2)
                     : 0,
-                CancellationRate = totalRecentAppointments > 0 
-                    ? Math.Round((double)cancelledRecentAppointments / totalRecentAppointments * 100, 2) 
+                CancellationRate = totalRecentAppointments > 0
+                    ? Math.Round((double)cancelledRecentAppointments / totalRecentAppointments * 100, 2)
                     : 0
             };
 
@@ -609,6 +720,66 @@ public class DashboardController : ControllerBase
         }).OrderBy(t => t.Date).ToList();
     }
 
+    // GET: api/Dashboard/monthly-revenue
+    [HttpGet("monthly-revenue")]
+    [AuthorizeRole(1)] // Admin only
+    public async Task<ActionResult<YearlyRevenueStatsDto>> GetMonthlyRevenue([FromQuery] int? year = null)
+    {
+        try
+        {
+            var targetYear = year ?? DateTime.Today.Year;
+            
+            var monthlyData = new List<MonthlyRevenueDto>();
+            var monthNames = new[] { "", "Tháng 1", "Tháng 2", "Tháng 3", "Tháng 4", "Tháng 5", "Tháng 6", 
+                                     "Tháng 7", "Tháng 8", "Tháng 9", "Tháng 10", "Tháng 11", "Tháng 12" };
+            
+            for (int month = 1; month <= 12; month++)
+            {
+                // Tính doanh thu tháng hiện tại
+                var startDate = new DateTime(targetYear, month, 1);
+                var endDate = startDate.AddMonths(1).AddSeconds(-1);
+                var currentRevenue = await CalculateRevenue(startDate, endDate);
+                
+                // Tính doanh thu tháng cùng kỳ năm trước
+                var previousYearStart = startDate.AddYears(-1);
+                var previousYearEnd = endDate.AddYears(-1);
+                var previousYearRevenue = await CalculateRevenue(previousYearStart, previousYearEnd);
+                
+                // Tính tăng trưởng so với cùng kỳ năm trước
+                var growthPercentage = previousYearRevenue > 0 
+                    ? Math.Round((double)((currentRevenue - previousYearRevenue) / previousYearRevenue * 100), 2)
+                    : (currentRevenue > 0 ? 100 : 0);
+                
+                monthlyData.Add(new MonthlyRevenueDto
+                {
+                    Month = month,
+                    MonthName = monthNames[month],
+                    Revenue = currentRevenue,
+                    GrowthPercentage = (decimal)growthPercentage
+                });
+            }
+            
+            var totalRevenue = monthlyData.Sum(m => m.Revenue);
+            var averageMonthlyRevenue = Math.Round(totalRevenue / 12, 2);
+            
+            var result = new YearlyRevenueStatsDto
+            {
+                Year = targetYear,
+                MonthlyData = monthlyData,
+                TotalRevenue = totalRevenue,
+                AverageMonthlyRevenue = averageMonthlyRevenue
+            };
+            
+            _logger.LogInformation($"Successfully retrieved monthly revenue for year {targetYear}");
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting monthly revenue");
+            return StatusCode(500, new { message = "Lỗi server khi lấy dữ liệu doanh thu theo tháng", error = ex.Message });
+        }
+    }
+
     private async Task<decimal> CalculateRevenue(DateTime startDate, DateTime endDate)
     {
         // Calculate revenue by CreatedAt (ngày tạo lịch)
@@ -640,10 +811,356 @@ public class DashboardController : ControllerBase
         return status switch
         {
             0 => "Chờ xác nhận",
-            1 => "Đã xác nhận", 
+            1 => "Đã xác nhận",
             2 => "Hoàn thành",
             3 => "Đã hủy",
             _ => "Không xác định"
         };
+    }
+        // GET: api/Dashboard/service-stats
+    [HttpGet("service-stats")]
+    [AuthorizeRole(1)] // Admin only
+    public async Task<ActionResult<ServiceStatsDto>> GetServiceStats(
+        [FromQuery] string filterType = "today",
+        [FromQuery] string? specificDate = null,
+        [FromQuery] int? month = null,
+        [FromQuery] int? year = null)
+    {
+        try
+        {
+            DateTime startDate;
+            DateTime endDate;
+            
+            // Xác định khoảng thời gian (giống như flexible endpoint)
+            switch (filterType.ToLower())
+            {
+                case "specific-date":
+                    if (string.IsNullOrEmpty(specificDate) || !DateTime.TryParse(specificDate, out var parsedDate))
+                    {
+                        return BadRequest(new { message = "Ngày không hợp lệ" });
+                    }
+                    startDate = parsedDate.Date;
+                    endDate = parsedDate.Date.AddDays(1).AddSeconds(-1);
+                    break;
+
+                case "last-7-days":
+                    endDate = DateTime.Today.AddDays(1).AddSeconds(-1);
+                    startDate = DateTime.Today.AddDays(-6);
+                    break;
+
+                case "last-30-days":
+                    endDate = DateTime.Today.AddDays(1).AddSeconds(-1);
+                    startDate = DateTime.Today.AddDays(-29);
+                    break;
+
+                case "this-week":
+                    var thisWeekStart = DateTime.Today.AddDays(-(int)DateTime.Today.DayOfWeek + (int)DayOfWeek.Monday);
+                    if (DateTime.Today.DayOfWeek == DayOfWeek.Sunday)
+                        thisWeekStart = thisWeekStart.AddDays(-7);
+                    startDate = thisWeekStart;
+                    endDate = thisWeekStart.AddDays(7).AddSeconds(-1);
+                    break;
+
+                case "last-week":
+                    var lastWeekStart = DateTime.Today.AddDays(-(int)DateTime.Today.DayOfWeek + (int)DayOfWeek.Monday - 7);
+                    if (DateTime.Today.DayOfWeek == DayOfWeek.Sunday)
+                        lastWeekStart = lastWeekStart.AddDays(-7);
+                    startDate = lastWeekStart;
+                    endDate = lastWeekStart.AddDays(7).AddSeconds(-1);
+                    break;
+
+                case "specific-month":
+                    if (!month.HasValue || month < 1 || month > 12)
+                    {
+                        return BadRequest(new { message = "Tháng phải từ 1-12" });
+                    }
+                    var targetYear = year ?? DateTime.Today.Year;
+                    startDate = new DateTime(targetYear, month.Value, 1);
+                    endDate = startDate.AddMonths(1).AddSeconds(-1);
+                    break;
+
+                case "today":
+                default:
+                    startDate = DateTime.Today;
+                    endDate = DateTime.Today.AddDays(1).AddSeconds(-1);
+                    break;
+            }
+
+            // Lấy tất cả dịch vụ
+            var allServices = await _context.Services.ToListAsync();
+            var totalServices = allServices.Count;
+
+            // Lấy appointments trong khoảng thời gian
+            var appointments = await _context.Appointments
+                .Where(a => a.CreatedAt.HasValue && a.CreatedAt.Value >= startDate && a.CreatedAt.Value <= endDate)
+                .Include(a => a.Service)
+                .ToListAsync();
+
+            // Thống kê theo dịch vụ
+            var serviceStats = appointments
+                .Where(a => a.Service != null && a.ServiceId > 0)
+                .GroupBy(a => new { a.ServiceId, a.Service })
+                .Select(g => new ServiceDetailStatsDto
+                {
+                    ServiceId = g.Key.ServiceId,
+                    ServiceName = g.Key.Service!.Name ?? "Unknown",
+                    Description = g.Key.Service.Description,
+                    Price = g.Key.Service.Price,
+                    TotalAppointments = g.Count(),
+                    CompletedAppointments = g.Count(a => a.Status == 2),
+                    CancelledAppointments = g.Count(a => a.Status == 3),
+                    CompletionRate = g.Count() > 0 ? Math.Round((double)g.Count(a => a.Status == 2) / g.Count() * 100, 2) : 0,
+                    TotalRevenue = g.Where(a => a.Status == 2 && g.Key.Service.Price.HasValue)
+                                    .Sum(a => g.Key.Service.Price!.Value)
+                })
+                .OrderByDescending(s => s.TotalAppointments)
+                .ToList();
+
+            // Top 10 dịch vụ phổ biến nhất
+            var topServices = serviceStats.Take(10).ToList();
+
+            // Doanh thu theo dịch vụ
+            var totalRevenue = serviceStats.Sum(s => s.TotalRevenue);
+            var revenueByService = serviceStats
+                .Where(s => s.TotalRevenue > 0)
+                .Select(s => new ServiceRevenueDto
+                {
+                    ServiceId = s.ServiceId,
+                    ServiceName = s.ServiceName,
+                    Revenue = s.TotalRevenue,
+                    CompletedCount = s.CompletedAppointments,
+                    PercentageOfTotal = totalRevenue > 0 ? Math.Round((double)(s.TotalRevenue / totalRevenue * 100), 2) : 0
+                })
+                .OrderByDescending(s => s.Revenue)
+                .ToList();
+
+            // Giá trung bình của dịch vụ
+            var averageServicePrice = allServices.Where(s => s.Price.HasValue).Average(s => s.Price!.Value);
+
+            var result = new ServiceStatsDto
+            {
+                TotalServices = totalServices,
+                TopServices = topServices,
+                RevenueByService = revenueByService,
+                TotalRevenue = totalRevenue,
+                AverageServicePrice = Math.Round(averageServicePrice, 2)
+            };
+
+            _logger.LogInformation("Successfully retrieved service statistics");
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting service statistics");
+            return StatusCode(500, new { message = "Lỗi server khi lấy thống kê dịch vụ", error = ex.Message });
+        }
+    }
+
+    // GET: api/Dashboard/customer-stats
+    [HttpGet("customer-stats")]
+    [AuthorizeRole(1)] // Admin only
+    public async Task<ActionResult<CustomerStatsDto>> GetCustomerStats(
+        [FromQuery] string filterType = "today",
+        [FromQuery] string? specificDate = null,
+        [FromQuery] int? month = null,
+        [FromQuery] int? year = null)
+    {
+        try
+        {
+            DateTime startDate;
+            DateTime endDate;
+            
+            // Xác định khoảng thời gian
+            switch (filterType.ToLower())
+            {
+                case "specific-date":
+                    if (string.IsNullOrEmpty(specificDate) || !DateTime.TryParse(specificDate, out var parsedDate))
+                    {
+                        return BadRequest(new { message = "Ngày không hợp lệ" });
+                    }
+                    startDate = parsedDate.Date;
+                    endDate = parsedDate.Date.AddDays(1).AddSeconds(-1);
+                    break;
+
+                case "last-7-days":
+                    endDate = DateTime.Today.AddDays(1).AddSeconds(-1);
+                    startDate = DateTime.Today.AddDays(-6);
+                    break;
+
+                case "last-30-days":
+                    endDate = DateTime.Today.AddDays(1).AddSeconds(-1);
+                    startDate = DateTime.Today.AddDays(-29);
+                    break;
+
+                case "this-week":
+                    var thisWeekStart = DateTime.Today.AddDays(-(int)DateTime.Today.DayOfWeek + (int)DayOfWeek.Monday);
+                    if (DateTime.Today.DayOfWeek == DayOfWeek.Sunday)
+                        thisWeekStart = thisWeekStart.AddDays(-7);
+                    startDate = thisWeekStart;
+                    endDate = thisWeekStart.AddDays(7).AddSeconds(-1);
+                    break;
+
+                case "last-week":
+                    var lastWeekStart = DateTime.Today.AddDays(-(int)DateTime.Today.DayOfWeek + (int)DayOfWeek.Monday - 7);
+                    if (DateTime.Today.DayOfWeek == DayOfWeek.Sunday)
+                        lastWeekStart = lastWeekStart.AddDays(-7);
+                    startDate = lastWeekStart;
+                    endDate = lastWeekStart.AddDays(7).AddSeconds(-1);
+                    break;
+
+                case "specific-month":
+                    if (!month.HasValue || month < 1 || month > 12)
+                    {
+                        return BadRequest(new { message = "Tháng phải từ 1-12" });
+                    }
+                    var targetYear = year ?? DateTime.Today.Year;
+                    startDate = new DateTime(targetYear, month.Value, 1);
+                    endDate = startDate.AddMonths(1).AddSeconds(-1);
+                    break;
+
+                case "today":
+                default:
+                    startDate = DateTime.Today;
+                    endDate = DateTime.Today.AddDays(1).AddSeconds(-1);
+                    break;
+            }
+
+            // Tổng số khách hàng
+            var totalCustomers = await _context.Customers
+                .Include(c => c.User)
+                .CountAsync();
+
+            // Khách hàng mới trong kỳ
+            var newCustomers = await _context.Customers
+                .Include(c => c.User)
+                .Where(c => c.User != null && c.User.CreatedAt >= startDate && c.User.CreatedAt <= endDate)
+                .CountAsync();
+
+            // Khách hàng quay lại (có nhiều hơn 1 lịch hẹn)
+            var returningCustomers = await _context.Customers
+                .Include(c => c.Pets)
+                    .ThenInclude(p => p.Appointments)
+                .Where(c => c.Pets.Any(p => p.Appointments.Count > 1))
+                .CountAsync();
+
+            // Tính tăng trưởng khách hàng
+            var previousStartDate = startDate.AddDays(-(endDate - startDate).Days - 1);
+            var previousEndDate = startDate.AddDays(-1);
+            var previousNewCustomers = await _context.Customers
+                .Include(c => c.User)
+                .Where(c => c.User != null && c.User.CreatedAt >= previousStartDate && c.User.CreatedAt <= previousEndDate)
+                .CountAsync();
+            
+            var customerGrowth = previousNewCustomers > 0 
+                ? Math.Round((double)(newCustomers - previousNewCustomers) / previousNewCustomers * 100, 2) 
+                : 0;
+
+            // Trung bình lịch hẹn mỗi khách hàng
+            var totalAppointments = await _context.Appointments
+                .Where(a => a.CreatedAt.HasValue && a.CreatedAt.Value >= startDate && a.CreatedAt.Value <= endDate)
+                .CountAsync();
+            var averageAppointmentsPerCustomer = totalCustomers > 0 
+                ? Math.Round((double)totalAppointments / totalCustomers, 2) 
+                : 0;
+
+            // Trung bình thú cưng mỗi khách hàng
+            var totalPets = await _context.Pets.CountAsync();
+            var averagePetsPerCustomer = totalCustomers > 0 
+                ? Math.Round((double)totalPets / totalCustomers, 2) 
+                : 0;
+
+            // Top khách hàng
+            var topCustomers = await _context.Customers
+                .Include(c => c.User)
+                .Include(c => c.Pets)
+                    .ThenInclude(p => p.Appointments.Where(a => a.CreatedAt.HasValue && a.CreatedAt.Value >= startDate && a.CreatedAt.Value <= endDate))
+                        .ThenInclude(a => a.Service)
+                .Select(c => new
+                {
+                    Customer = c,
+                    AppointmentCount = c.Pets.SelectMany(p => p.Appointments).Count(),
+                    TotalSpent = c.Pets.SelectMany(p => p.Appointments)
+                        .Where(a => a.Status == 2 && a.Service != null && a.Service.Price.HasValue)
+                        .Sum(a => a.Service!.Price!.Value),
+                    LastVisit = c.Pets.SelectMany(p => p.Appointments)
+                        .OrderByDescending(a => a.CreatedAt)
+                        .Select(a => a.CreatedAt)
+                        .FirstOrDefault()
+                })
+                .Where(x => x.AppointmentCount > 0)
+                .OrderByDescending(x => x.AppointmentCount)
+                .Take(10)
+                .ToListAsync();
+
+            var topCustomerList = topCustomers.Select(x => new TopCustomerDto
+            {
+                CustomerId = x.Customer.CustomerId,
+                CustomerName = x.Customer.CustomerName ?? "Unknown",
+                Email = x.Customer.User?.Email,
+                PhoneNumber = x.Customer.User?.PhoneNumber,
+                TotalAppointments = x.AppointmentCount,
+                TotalPets = x.Customer.Pets.Count,
+                TotalSpent = x.TotalSpent,
+                LastVisit = x.LastVisit
+            }).ToList();
+
+            // Phân loại khách hàng theo mức độ hoạt động
+            var allCustomersActivity = await _context.Customers
+                .Include(c => c.Pets)
+                    .ThenInclude(p => p.Appointments)
+                .Select(c => new
+                {
+                    Customer = c,
+                    AppointmentCount = c.Pets.SelectMany(p => p.Appointments)
+                        .Count(a => a.CreatedAt.HasValue && a.CreatedAt.Value >= startDate && a.CreatedAt.Value <= endDate)
+                })
+                .ToListAsync();
+
+            var highActivity = allCustomersActivity.Count(x => x.AppointmentCount >= 5);
+            var mediumActivity = allCustomersActivity.Count(x => x.AppointmentCount >= 2 && x.AppointmentCount < 5);
+            var lowActivity = allCustomersActivity.Count(x => x.AppointmentCount >= 1 && x.AppointmentCount < 2);
+
+            var customersByActivity = new List<CustomerActivityDto>
+            {
+                new CustomerActivityDto 
+                { 
+                    ActivityLevel = "Cao (≥5 lịch hẹn)", 
+                    CustomerCount = highActivity,
+                    Percentage = totalCustomers > 0 ? Math.Round((double)highActivity / totalCustomers * 100, 2) : 0
+                },
+                new CustomerActivityDto 
+                { 
+                    ActivityLevel = "Trung bình (2-4 lịch hẹn)", 
+                    CustomerCount = mediumActivity,
+                    Percentage = totalCustomers > 0 ? Math.Round((double)mediumActivity / totalCustomers * 100, 2) : 0
+                },
+                new CustomerActivityDto 
+                { 
+                    ActivityLevel = "Thấp (1 lịch hẹn)", 
+                    CustomerCount = lowActivity,
+                    Percentage = totalCustomers > 0 ? Math.Round((double)lowActivity / totalCustomers * 100, 2) : 0
+                }
+            };
+
+            var result = new CustomerStatsDto
+            {
+                TotalCustomers = totalCustomers,
+                NewCustomers = newCustomers,
+                ReturningCustomers = returningCustomers,
+                CustomerGrowth = customerGrowth,
+                AverageAppointmentsPerCustomer = averageAppointmentsPerCustomer,
+                AveragePetsPerCustomer = averagePetsPerCustomer,
+                TopCustomers = topCustomerList,
+                CustomersByActivity = customersByActivity
+            };
+
+            _logger.LogInformation("Successfully retrieved customer statistics");
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting customer statistics");
+            return StatusCode(500, new { message = "Lỗi server khi lấy thống kê khách hàng", error = ex.Message });
+        }
     }
 } 

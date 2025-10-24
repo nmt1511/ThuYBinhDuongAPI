@@ -28,7 +28,7 @@ namespace ThuYBinhDuongAPI.Models
 
         [Required]
         [Column("message_type")]
-        public int MessageType { get; set; } // 0: Text, 1: Image, 2: File
+        public int MessageType { get; set; } // 0: Text, 1: Image, 2: File, 3: Video
 
         [StringLength(500)]
         [Column("file_url")]
