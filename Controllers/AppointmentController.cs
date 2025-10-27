@@ -16,18 +16,20 @@ namespace ThuYBinhDuongAPI.Controllers
         private readonly ThuybinhduongContext _context;
         private readonly IJwtService _jwtService;
         private readonly IEmailService _emailService;
-
+        private readonly INotificationService _notificationService;
         private readonly ILogger<AppointmentController> _logger;
 
         public AppointmentController(
             ThuybinhduongContext context, 
-            IJwtService jwtService, 
-            IEmailService emailService, 
+            IJwtService _jwtService, 
+            IEmailService emailService,
+            INotificationService notificationService,
             ILogger<AppointmentController> logger)
         {
             _context = context;
-            _jwtService = jwtService;
+            this._jwtService = _jwtService;
             _emailService = emailService;
+            _notificationService = notificationService;
             _logger = logger;
         }
 
@@ -929,12 +931,15 @@ namespace ThuYBinhDuongAPI.Controllers
                 appointment.Status = newStatus;
                 await _context.SaveChangesAsync();
 
-                // Gửi email khi xác nhận lịch hẹn (status thay đổi từ 0 sang 1)
+                // Gửi email và push notification khi xác nhận lịch hẹn (status thay đổi từ 0 sang 1)
                 if (oldStatus == 0 && newStatus == 1)
                 {
                     try
                     {
                         var customerEmail = appointment.Pet.Customer.User.Email;
+                        var userId = appointment.Pet.Customer.UserId;
+                        
+                        // Gửi email
                         if (!string.IsNullOrEmpty(customerEmail))
                         {
                             await _emailService.SendAppointmentConfirmationEmailAsync(
@@ -947,18 +952,34 @@ namespace ThuYBinhDuongAPI.Controllers
                                 appointment.AppointmentTime
                             );
                         }
+                        
+                        // Tạo notification
+                        if (userId > 0)
+                        {
+                            await _notificationService.CreateAppointmentConfirmationNotificationAsync(
+                                userId,
+                                appointment.Pet.Name,
+                                appointment.Service.Name,
+                                appointment.Doctor?.FullName ?? "Chưa chỉ định",
+                                appointment.AppointmentDate,
+                                appointment.AppointmentTime
+                            );
+                        }
                     }
                     catch (Exception emailEx)
                     {
-                        _logger.LogError(emailEx, "Failed to send confirmation email for appointment {AppointmentId}", id);
+                        _logger.LogError(emailEx, "Failed to send confirmation email/notification for appointment {AppointmentId}", id);
                     }
                 }
-                // Gửi email thông báo thay đổi trạng thái cho các trường hợp khác
+                // Gửi email và push notification thông báo thay đổi trạng thái cho các trường hợp khác
                 else if (oldStatus != newStatus && oldStatus.HasValue)
                 {
                     try
                     {
                         var customerEmail = appointment.Pet.Customer.User.Email;
+                        var userId = appointment.Pet.Customer.UserId;
+                        
+                        // Gửi email
                         if (!string.IsNullOrEmpty(customerEmail))
                         {
                             await _emailService.SendAppointmentStatusChangeEmailAsync(
@@ -972,10 +993,24 @@ namespace ThuYBinhDuongAPI.Controllers
                                 GetStatusText(newStatus)
                             );
                         }
+                        
+                        // Tạo notification
+                        if (userId > 0)
+                        {
+                            await _notificationService.CreateAppointmentStatusChangeNotificationAsync(
+                                userId,
+                                appointment.Pet.Name,
+                                appointment.Service.Name,
+                                GetStatusText(oldStatus),
+                                GetStatusText(newStatus),
+                                appointment.AppointmentDate,
+                                appointment.AppointmentTime
+                            );
+                        }
                     }
                     catch (Exception emailEx)
                     {
-                        _logger.LogError(emailEx, "Failed to send status change email for appointment {AppointmentId}", id);
+                        _logger.LogError(emailEx, "Failed to send status change email/notification for appointment {AppointmentId}", id);
                     }
                 }
 

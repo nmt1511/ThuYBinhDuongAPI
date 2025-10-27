@@ -30,6 +30,12 @@ builder.Services.AddScoped<IJwtService, JwtService>();
 // Thêm Email Service
 builder.Services.AddScoped<IEmailService, EmailService>();
 
+// Thêm Notification Service (Local notification approach)
+builder.Services.AddScoped<INotificationService, NotificationService>();
+
+// Thêm Reminder Service
+builder.Services.AddScoped<IReminderService, ReminderService>();
+
 // Cấu hình Cloudinary
 var cloudinarySettings = builder.Configuration.GetSection("Cloudinary");
 var cloudinaryAccount = new Account(

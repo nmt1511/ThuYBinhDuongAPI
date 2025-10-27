@@ -50,6 +50,30 @@ namespace ThuYBinhDuongAPI.Services
             }
         }
 
+        public async Task SendAppointmentReminderEmailAsync(string customerEmail, string customerName, string petName,
+            string serviceName, string appointmentDate, string appointmentTime, int daysUntil, string? reminderNote)
+        {
+            try
+            {
+                var subject = daysUntil switch
+                {
+                    0 => "🔔 Nhắc hẹn: Hôm nay có lịch tái khám - Thú Y Bình Dương",
+                    1 => "🔔 Nhắc hẹn: Ngày mai có lịch tái khám - Thú Y Bình Dương",
+                    _ => $"🔔 Nhắc hẹn: Còn {daysUntil} ngày tới lịch tái khám - Thú Y Bình Dương"
+                };
+
+                var body = GenerateReminderEmailBody(customerName, petName, serviceName, appointmentDate, appointmentTime, daysUntil, reminderNote);
+
+                await SendEmailAsync(customerEmail, subject, body);
+                _logger.LogInformation($"Sent appointment reminder email to {customerEmail} ({daysUntil} days until appointment)");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Failed to send appointment reminder email to {customerEmail}");
+                throw;
+            }
+        }
+
         private async Task SendEmailAsync(string toEmail, string subject, string body)
         {
             var smtpHost = _configuration["Email:SmtpHost"] ?? "smtp.gmail.com";
@@ -191,6 +215,109 @@ namespace ThuYBinhDuongAPI.Services
             <p>Thú Y Bình Dương<br>
             Hotline: 0123456789<br>
             Email: info@thuybinhduong.com</p>
+        </div>
+    </div>
+</body>
+</html>";
+        }
+
+        private string GenerateReminderEmailBody(string customerName, string petName, string serviceName,
+            string appointmentDate, string appointmentTime, int daysUntil, string? reminderNote)
+        {
+            var urgencyClass = daysUntil switch
+            {
+                0 => "urgent-today",
+                1 => "urgent-tomorrow",
+                _ => "reminder"
+            };
+
+            var urgencyColor = daysUntil switch
+            {
+                0 => "#E74C3C",
+                1 => "#F39C12",
+                _ => "#3498DB"
+            };
+
+            var mainMessage = daysUntil switch
+            {
+                0 => $"<p class='urgent-message'>Thú cưng <strong>{petName}</strong> của bạn có lịch tái khám <strong>HÔM NAY</strong>!</p>",
+                1 => $"<p class='urgent-message'>Thú cưng <strong>{petName}</strong> của bạn có lịch tái khám <strong>NGÀY MAI</strong>!</p>",
+                _ => $"<p>Đây là lời nhắc lịch tái khám cho thú cưng <strong>{petName}</strong> của bạn.</p>"
+            };
+
+            var reminderNoteHtml = !string.IsNullOrEmpty(reminderNote)
+                ? $@"<div class='reminder-note'>
+                    <h4>⚠️ Lưu ý quan trọng:</h4>
+                    <p>{reminderNote}</p>
+                </div>"
+                : "";
+
+            return $@"
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset='utf-8'>
+    <title>Nhắc hẹn tái khám</title>
+    <style>
+        body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+        .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+        .header {{ background-color: {urgencyColor}; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }}
+        .header h1 {{ margin: 0; font-size: 24px; }}
+        .content {{ padding: 20px; background-color: #f9f9f9; }}
+        .urgent-message {{ font-size: 18px; color: {urgencyColor}; text-align: center; padding: 15px; background-color: #fff; border-radius: 8px; margin: 15px 0; }}
+        .appointment-details {{ background-color: white; padding: 20px; border-left: 4px solid {urgencyColor}; margin: 15px 0; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }}
+        .appointment-details h3 {{ margin-top: 0; color: {urgencyColor}; }}
+        .appointment-details p {{ margin: 10px 0; }}
+        .reminder-note {{ background-color: #FFF9E6; border: 2px solid #F39C12; padding: 15px; margin: 15px 0; border-radius: 4px; }}
+        .reminder-note h4 {{ margin-top: 0; color: #F39C12; }}
+        .preparation {{ background-color: #E8F5E9; padding: 15px; margin: 15px 0; border-radius: 4px; }}
+        .preparation h4 {{ margin-top: 0; color: #4CAF50; }}
+        .preparation ul {{ margin: 10px 0; padding-left: 20px; }}
+        .footer {{ text-align: center; padding: 20px; color: #666; background-color: #f0f0f0; border-radius: 0 0 8px 8px; margin-top: 20px; }}
+        .footer p {{ margin: 5px 0; }}
+        .countdown {{ text-align: center; font-size: 36px; font-weight: bold; color: {urgencyColor}; margin: 20px 0; }}
+    </style>
+</head>
+<body>
+    <div class='container'>
+        <div class='header'>
+            <h1>🔔 Nhắc nhở lịch tái khám</h1>
+        </div>
+        <div class='content'>
+            <p>Xin chào <strong>{customerName}</strong>,</p>
+            {mainMessage}
+            
+            {(daysUntil > 1 ? $"<div class='countdown'>Còn {daysUntil} ngày</div>" : "")}
+            
+            <div class='appointment-details'>
+                <h3>📋 Thông tin lịch hẹn</h3>
+                <p>🐾 <strong>Thú cưng:</strong> {petName}</p>
+                <p>💊 <strong>Dịch vụ:</strong> {serviceName}</p>
+                <p>📅 <strong>Ngày hẹn:</strong> {appointmentDate}</p>
+                <p>⏰ <strong>Giờ hẹn:</strong> {appointmentTime}</p>
+            </div>
+            
+            {reminderNoteHtml}
+            
+            <div class='preparation'>
+                <h4>✅ Chuẩn bị trước khi đến:</h4>
+                <ul>
+                    <li>Vui lòng đến đúng giờ hẹn</li>
+                    <li>Mang theo thú cưng và các giấy tờ liên quan (nếu có)</li>
+                    <li>Chuẩn bị các câu hỏi bạn muốn hỏi bác sĩ</li>
+                    <li>Nếu cần thay đổi lịch hẹn, vui lòng liên hệ trước ít nhất 2 giờ</li>
+                </ul>
+            </div>
+            
+            <p style='text-align: center; margin-top: 20px;'>
+                <strong>Cảm ơn bạn đã tin tưởng dịch vụ của chúng tôi!</strong>
+            </p>
+        </div>
+        <div class='footer'>
+            <p><strong>Thú Y Bình Dương</strong></p>
+            <p>📞 Hotline: 0123456789</p>
+            <p>✉️ Email: info@thuybinhduong.com</p>
+            <p>🌐 Website: www.thuybinhduong.com</p>
         </div>
     </div>
 </body>

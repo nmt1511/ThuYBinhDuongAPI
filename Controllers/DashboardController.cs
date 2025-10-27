@@ -577,6 +577,65 @@ public class DashboardController : ControllerBase
                 ? Math.Round((double)(revenueDifference / previousRevenue * 100), 2) 
                 : (totalRevenue > 0 ? 100 : 0);
 
+            // Tính toán multi-period comparison (7 ngày hoặc 4 tuần)
+            List<PeriodRevenueDto>? multiPeriodComparison = null;
+            
+            if (filterType == "today" || filterType == "specific-date")
+            {
+                // So sánh 7 ngày (ngày được chọn + 6 ngày trước đó)
+                multiPeriodComparison = new List<PeriodRevenueDto>();
+                var selectedDate = startDate.Date;
+                
+                for (int i = 6; i >= 0; i--)
+                {
+                    var dayStart = selectedDate.AddDays(-i);
+                    var dayEnd = dayStart.AddDays(1).AddSeconds(-1);
+                    var dayRevenue = await CalculateRevenue(dayStart, dayEnd);
+                    var dayCompletedCount = await _context.Appointments
+                        .Where(a => a.CreatedAt.HasValue && a.CreatedAt.Value >= dayStart && a.CreatedAt.Value <= dayEnd && a.Status == 2)
+                        .CountAsync();
+                    
+                    multiPeriodComparison.Add(new PeriodRevenueDto
+                    {
+                        Label = dayStart.ToString("dd/MM"),
+                        StartDate = dayStart,
+                        EndDate = dayEnd,
+                        Revenue = dayRevenue,
+                        CompletedAppointments = dayCompletedCount
+                    });
+                }
+            }
+            else if (filterType == "this-week" || filterType == "last-week" || filterType == "last-7-days")
+            {
+                // So sánh 4 tuần gần nhất
+                multiPeriodComparison = new List<PeriodRevenueDto>();
+                var referenceDate = filterType == "last-7-days" ? DateTime.Today : startDate;
+                
+                // Tìm thứ 2 của tuần hiện tại (hoặc tuần tham chiếu)
+                var mondayOfWeek = referenceDate.AddDays(-(int)referenceDate.DayOfWeek + (int)DayOfWeek.Monday);
+                if (referenceDate.DayOfWeek == DayOfWeek.Sunday)
+                    mondayOfWeek = mondayOfWeek.AddDays(-7);
+                
+                for (int i = 3; i >= 0; i--)
+                {
+                    var weekStart = mondayOfWeek.AddDays(-i * 7);
+                    var weekEnd = weekStart.AddDays(7).AddSeconds(-1);
+                    var weekRevenue = await CalculateRevenue(weekStart, weekEnd);
+                    var weekCompletedCount = await _context.Appointments
+                        .Where(a => a.CreatedAt.HasValue && a.CreatedAt.Value >= weekStart && a.CreatedAt.Value <= weekEnd && a.Status == 2)
+                        .CountAsync();
+                    
+                    multiPeriodComparison.Add(new PeriodRevenueDto
+                    {
+                        Label = $"{weekStart:dd/MM}-{weekStart.AddDays(6):dd/MM}",
+                        StartDate = weekStart,
+                        EndDate = weekEnd,
+                        Revenue = weekRevenue,
+                        CompletedAppointments = weekCompletedCount
+                    });
+                }
+            }
+            
             var revenueStats = new RevenueStatsDto
             {
                 TotalRevenue = totalRevenue,
@@ -590,7 +649,8 @@ public class DashboardController : ControllerBase
                     GrowthPercentage = (decimal)revenueGrowth,
                     CurrentPeriodLabel = currentPeriodLabel,
                     PreviousPeriodLabel = previousPeriodLabel
-                }
+                },
+                MultiPeriodComparison = multiPeriodComparison
             };
 
             var result = new SimpleDashboardDto

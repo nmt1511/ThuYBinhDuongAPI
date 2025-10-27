@@ -99,6 +99,7 @@ public class RevenueStatsDto
     public decimal AverageRevenue { get; set; }
     public decimal RevenueGrowth { get; set; }
     public RevenueComparisonDto? Comparison { get; set; }
+    public List<PeriodRevenueDto>? MultiPeriodComparison { get; set; }
 }
 
 public class RevenueComparisonDto
@@ -159,4 +160,13 @@ public class AppointmentDetailDto
     public string DoctorName { get; set; } = string.Empty;
     public int Status { get; set; }
     public string StatusText { get; set; } = string.Empty;
+}
+
+public class PeriodRevenueDto
+{
+    public string Label { get; set; } = string.Empty;
+    public DateTime StartDate { get; set; }
+    public DateTime EndDate { get; set; }
+    public decimal Revenue { get; set; }
+    public int CompletedAppointments { get; set; }
 } 

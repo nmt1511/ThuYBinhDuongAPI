@@ -30,6 +30,8 @@ public partial class ThuybinhduongContext : DbContext
     public virtual DbSet<MedicalHistory> MedicalHistories { get; set; }
 
     public virtual DbSet<News> News { get; set; }
+    
+    public virtual DbSet<Notification> Notifications { get; set; }
 
     public virtual DbSet<Pet> Pets { get; set; }
 
