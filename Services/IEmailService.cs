@@ -10,5 +10,8 @@ namespace ThuYBinhDuongAPI.Services
         
         Task SendAppointmentReminderEmailAsync(string customerEmail, string customerName, string petName,
             string serviceName, string appointmentDate, string appointmentTime, int daysUntil, string? reminderNote);
+        
+        Task SendReminderEmailAsync(string customerEmail, string customerName, string petName,
+            string serviceName, string nextAppointmentDate, string reminderNote);
     }
 } 

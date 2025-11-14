@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ThuYBinhDuongAPI.Data.Dtos;
 using ThuYBinhDuongAPI.Models;
+using ThuYBinhDuongAPI.Services;
 
 namespace ThuYBinhDuongAPI.Controllers
 {
@@ -13,11 +14,19 @@ namespace ThuYBinhDuongAPI.Controllers
     {
         private readonly ThuybinhduongContext _context;
         private readonly ILogger<MedicalHistoryController> _logger;
+        private readonly IEmailService _emailService;
+        private readonly INotificationService _notificationService;
 
-        public MedicalHistoryController(ThuybinhduongContext context, ILogger<MedicalHistoryController> logger)
+        public MedicalHistoryController(
+            ThuybinhduongContext context, 
+            ILogger<MedicalHistoryController> logger,
+            IEmailService emailService,
+            INotificationService notificationService)
         {
             _context = context;
             _logger = logger;
+            _emailService = emailService;
+            _notificationService = notificationService;
         }
 
         /// <summary>
@@ -38,6 +47,7 @@ namespace ThuYBinhDuongAPI.Controllers
                 var query = _context.MedicalHistories
                     .Include(mh => mh.Pet)
                         .ThenInclude(p => p.Customer)
+                    .Include(mh => mh.Doctor)
                     .AsQueryable();
 
                 // Lọc theo petId nếu có
@@ -83,6 +93,7 @@ namespace ThuYBinhDuongAPI.Controllers
                     {
                         mh.HistoryId,
                         mh.PetId,
+                        mh.DoctorId,
                         mh.RecordDate,
                         mh.Description,
                         mh.Treatment,
@@ -96,6 +107,10 @@ namespace ThuYBinhDuongAPI.Controllers
                                 mh.Pet.Customer.CustomerId,
                                 mh.Pet.Customer.CustomerName
                             }
+                        },
+                        Doctor = mh.Doctor == null ? null : new {
+                            mh.Doctor.DoctorId,
+                            mh.Doctor.FullName
                         }
                     })
                     .ToListAsync();
@@ -132,11 +147,13 @@ namespace ThuYBinhDuongAPI.Controllers
                 var history = await _context.MedicalHistories
                     .Include(mh => mh.Pet)
                         .ThenInclude(p => p.Customer)
+                    .Include(mh => mh.Doctor)
                     .Where(mh => mh.HistoryId == id)
                     .Select(mh => new
                     {
                         mh.HistoryId,
                         mh.PetId,
+                        mh.DoctorId,
                         mh.RecordDate,
                         mh.Description,
                         mh.Treatment,
@@ -150,6 +167,10 @@ namespace ThuYBinhDuongAPI.Controllers
                                 mh.Pet.Customer.CustomerId,
                                 mh.Pet.Customer.CustomerName
                             }
+                        },
+                        Doctor = mh.Doctor == null ? null : new {
+                            mh.Doctor.DoctorId,
+                            mh.Doctor.FullName
                         }
                     })
                     .FirstOrDefaultAsync();

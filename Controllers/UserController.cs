@@ -563,6 +563,167 @@ namespace ThuYBinhDuongAPI.Controllers
             }
         }
 
+        /// <summary>
+        /// Xóa người dùng (Admin only)
+        /// </summary>
+        [HttpDelete("delete/{userId}")]
+        [AuthorizeRole(1)] // Chỉ Administrator
+        public async Task<IActionResult> DeleteUser(int userId)
+        {
+            _logger.LogInformation($"DeleteUser called for userId: {userId}");
+            try
+            {
+                var user = await _context.Users
+                    .Include(u => u.Customers)
+                    .ThenInclude(c => c.Pets)
+                    .FirstOrDefaultAsync(u => u.UserId == userId);
+
+                if (user == null)
+                {
+                    return NotFound(new { message = "Không tìm thấy người dùng" });
+                }
+
+                // Không cho phép xóa tài khoản admin đang đăng nhập
+                var currentUserIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (int.TryParse(currentUserIdClaim, out int currentUserId) && currentUserId == userId)
+                {
+                    return BadRequest(new { message = "Không thể xóa tài khoản đang đăng nhập" });
+                }
+
+                using var transaction = await _context.Database.BeginTransactionAsync();
+
+                try
+                {
+                    _logger.LogInformation($"Starting deletion transaction for user {userId}");
+
+                    // Xóa tất cả dữ liệu liên quan nếu là customer
+                    if (user.Customers.Any())
+                    {
+                        // Convert to list để tránh lỗi "Collection was modified" khi enumerate
+                        var customersList = user.Customers.ToList();
+                        _logger.LogInformation($"User has {customersList.Count} customer(s)");
+                        
+                        foreach (var customer in customersList)
+                        {
+                            _logger.LogInformation($"Processing customer {customer.CustomerId}");
+
+                            // BƯỚC 1: Xóa ChatRooms trước (vì có foreign key đến Customer)
+                            try
+                            {
+                                var chatRooms = await _context.ChatRooms
+                                    .Where(cr => cr.CustomerId == customer.CustomerId)
+                                    .ToListAsync();
+                                
+                                _logger.LogInformation($"Found {chatRooms.Count} chat room(s) for customer {customer.CustomerId}");
+                                
+                                if (chatRooms.Any())
+                                {
+                                    _context.ChatRooms.RemoveRange(chatRooms);
+                                    await _context.SaveChangesAsync();
+                                    _logger.LogInformation($"Deleted {chatRooms.Count} chat room(s)");
+                                }
+                            }
+                            catch (Exception chatRoomEx)
+                            {
+                                _logger.LogWarning(chatRoomEx, "Error deleting chat rooms for customer {CustomerId}: {Message}", customer.CustomerId, chatRoomEx.Message);
+                            }
+
+                            // BƯỚC 2: Xóa pets và dữ liệu liên quan
+                            if (customer.Pets.Any())
+                            {
+                                // Convert to list để tránh lỗi "Collection was modified"
+                                var petsList = customer.Pets.ToList();
+                                _logger.LogInformation($"Customer {customer.CustomerId} has {petsList.Count} pet(s)");
+                                
+                                foreach (var pet in petsList)
+                                {
+                                    _logger.LogInformation($"Processing pet {pet.PetId}");
+
+                                    // Xóa feedbacks của appointments
+                                    var petAppointments = await _context.Appointments
+                                        .Include(a => a.Feedbacks)
+                                        .Where(a => a.PetId == pet.PetId)
+                                        .ToListAsync();
+
+                                    _logger.LogInformation($"Pet {pet.PetId} has {petAppointments.Count} appointment(s)");
+
+                                    foreach (var appointment in petAppointments)
+                                    {
+                                        if (appointment.Feedbacks.Any())
+                                        {
+                                            _logger.LogInformation($"Deleting {appointment.Feedbacks.Count} feedback(s) for appointment {appointment.AppointmentId}");
+                                            _context.Feedbacks.RemoveRange(appointment.Feedbacks);
+                                        }
+                                    }
+
+                                    // Xóa appointments
+                                    if (petAppointments.Any())
+                                    {
+                                        _context.Appointments.RemoveRange(petAppointments);
+                                    }
+
+                                    // Xóa medical histories
+                                    var medicalHistories = await _context.MedicalHistories
+                                        .Where(m => m.PetId == pet.PetId)
+                                        .ToListAsync();
+                                    
+                                    if (medicalHistories.Any())
+                                    {
+                                        _logger.LogInformation($"Deleting {medicalHistories.Count} medical history record(s) for pet {pet.PetId}");
+                                        _context.MedicalHistories.RemoveRange(medicalHistories);
+                                    }
+                                }
+                                
+                                // Xóa tất cả pets (dùng petsList thay vì customer.Pets)
+                                if (petsList.Any())
+                                {
+                                    _context.Pets.RemoveRange(petsList);
+                                    await _context.SaveChangesAsync();
+                                    _logger.LogInformation($"Deleted all pets for customer {customer.CustomerId}");
+                                }
+                            }
+
+                            // BƯỚC 3: Xóa customer
+                            _context.Customers.Remove(customer);
+                            await _context.SaveChangesAsync();
+                            _logger.LogInformation($"Deleted customer {customer.CustomerId}");
+                        }
+                    }
+
+                    // BƯỚC 4: Xóa user
+                    _context.Users.Remove(user);
+                    await _context.SaveChangesAsync();
+                    _logger.LogInformation($"Deleted user {userId}");
+
+                    await transaction.CommitAsync();
+                    _logger.LogInformation($"Transaction committed successfully for user {userId}");
+
+                    return Ok(new { message = "Xóa người dùng thành công" });
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error in transaction while deleting user {UserId}: {Message}. StackTrace: {StackTrace}", 
+                        userId, ex.Message, ex.StackTrace);
+                    
+                    try
+                    {
+                        await transaction.RollbackAsync();
+                        _logger.LogInformation($"Transaction rolled back for user {userId}");
+                    }
+                    catch (Exception rollbackEx)
+                    {
+                        _logger.LogError(rollbackEx, "Error rolling back transaction for user {UserId}", userId);
+                    }
+                    throw;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting user {UserId}", userId);
+                return StatusCode(500, new { message = "Không thể xóa người dùng. Vui lòng thử lại." });
+            }
+        }
+
         #region Private Methods
 
         /// <summary>

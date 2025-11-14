@@ -1032,12 +1032,18 @@ namespace ThuYBinhDuongAPI.Controllers
                     .Include(c => c.Pets)  // Thêm Include Pets
                     .AsQueryable();
 
-                // Search filter
+                // Search filter - tìm theo ID, tên, username, email, phone
                 if (!string.IsNullOrWhiteSpace(search))
                 {
                     var searchTerm = search.ToLower().Trim();
+                    
+                    // Try parse search term as ID
+                    bool isNumericSearch = int.TryParse(searchTerm, out int searchId);
+                    
                     query = query.Where(c => 
+                        (isNumericSearch && (c.CustomerId == searchId || c.UserId == searchId)) ||
                         c.CustomerName.ToLower().Contains(searchTerm) ||
+                        (c.User.Username != null && c.User.Username.ToLower().Contains(searchTerm)) ||
                         (c.User.Email != null && c.User.Email.ToLower().Contains(searchTerm)) ||
                         (c.User.PhoneNumber != null && c.User.PhoneNumber.Contains(searchTerm))
                     );
@@ -1058,7 +1064,7 @@ namespace ThuYBinhDuongAPI.Controllers
                         PetCount = c.Pets.Count,  // Số lượng thú cưng
                         AppointmentCount = c.Pets.SelectMany(p => p.Appointments).Count()  // Số lượng lịch hẹn
                     })
-                    .OrderBy(c => c.CustomerName)
+                    .OrderByDescending(c => c.UserId)  // Sắp xếp theo UserId giảm dần (ID mới nhất trước)
                     .Skip(skip)
                     .Take(limit)
                     .ToListAsync();

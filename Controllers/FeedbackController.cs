@@ -207,7 +207,7 @@ namespace ThuYBinhDuongAPI.Controllers
                     AppointmentId = createDto.AppointmentId,
                     Rating = createDto.Rating,
                     Comment = createDto.Comment,
-                    CreatedAt = DateTime.UtcNow
+                    CreatedAt = GetVietnamTime() // Giờ Việt Nam (UTC+7)
                 };
 
                 _context.Feedbacks.Add(feedback);
@@ -537,6 +537,16 @@ namespace ThuYBinhDuongAPI.Controllers
             {
                 return null;
             }
+        }
+
+        /// <summary>
+        /// Lấy thời gian hiện tại theo giờ Việt Nam (UTC+7)
+        /// </summary>
+        private static DateTime GetVietnamTime()
+        {
+            var utcNow = DateTime.UtcNow;
+            var vietnamTimeZone = TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time");
+            return TimeZoneInfo.ConvertTimeFromUtc(utcNow, vietnamTimeZone);
         }
 
         #endregion

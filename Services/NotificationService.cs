@@ -103,6 +103,31 @@ namespace ThuYBinhDuongAPI.Services
 
             return await CreateNotificationAsync(userId, title, body, "appointment_confirmed", data);
         }
+
+        /// <summary>
+        /// Tạo notification nhắc hẹn tái khám
+        /// </summary>
+        public async Task<bool> CreateReminderNotificationAsync(
+            int userId, 
+            string petName, 
+            string serviceName, 
+            DateTime nextAppointmentDate, 
+            string reminderNote)
+        {
+            var title = "Nhắc hẹn tái khám";
+            var body = $"Nhắc hẹn: {petName} cần tái khám {serviceName} vào {nextAppointmentDate.ToString("dd/MM/yyyy")}. Ghi chú: {reminderNote}";
+            
+            var data = new
+            {
+                type = "reminder",
+                petName,
+                serviceName,
+                nextAppointmentDate = nextAppointmentDate.ToString("dd/MM/yyyy"),
+                reminderNote
+            };
+
+            return await CreateNotificationAsync(userId, title, body, "reminder", data);
+        }
     }
 }
 

@@ -323,5 +323,107 @@ namespace ThuYBinhDuongAPI.Services
 </body>
 </html>";
         }
+
+        /// <summary>
+        /// Gửi email nhắc hẹn tái khám
+        /// </summary>
+        public async Task SendReminderEmailAsync(string customerEmail, string customerName, string petName,
+            string serviceName, string nextAppointmentDate, string reminderNote)
+        {
+            try
+            {
+                var subject = $"Nhắc hẹn tái khám - {petName} - {nextAppointmentDate}";
+                var body = GenerateReminderEmailBody(customerName, petName, serviceName, nextAppointmentDate, reminderNote);
+
+                await SendEmailAsync(customerEmail, subject, body);
+                _logger.LogInformation($"Sent reminder email to {customerEmail} for pet {petName} on {nextAppointmentDate}");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error sending reminder email to {customerEmail}");
+                throw;
+            }
+        }
+
+        private string GenerateReminderEmailBody(string customerName, string petName, string serviceName,
+            string nextAppointmentDate, string reminderNote)
+        {
+            var reminderNoteHtml = !string.IsNullOrEmpty(reminderNote)
+                ? $@"<div class='reminder-note'>
+                    <h4>📝 Ghi chú nhắc hẹn:</h4>
+                    <p style='background: #FFF3CD; padding: 10px; border-left: 4px solid #FFC107; margin: 10px 0;'>
+                        {reminderNote}
+                    </p>
+                </div>"
+                : "";
+
+            return $@"
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset='UTF-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+    <title>Nhắc hẹn tái khám</title>
+    <style>
+        body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f4f4f4; }}
+        .container {{ max-width: 600px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }}
+        .header {{ background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; text-align: center; border-radius: 10px 10px 0 0; margin: -20px -20px 20px -20px; }}
+        .header h1 {{ margin: 0; font-size: 24px; }}
+        .appointment-details {{ background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #007bff; }}
+        .appointment-details h3 {{ color: #007bff; margin-top: 0; }}
+        .appointment-details p {{ margin: 10px 0; }}
+        .reminder-note {{ background: #FFF3CD; padding: 15px; border-radius: 8px; margin: 15px 0; border-left: 4px solid #FFC107; }}
+        .preparation {{ background: #E8F5E8; padding: 15px; border-radius: 8px; margin: 15px 0; }}
+        .preparation h4 {{ color: #28a745; margin-top: 0; }}
+        .preparation ul {{ margin: 10px 0; padding-left: 20px; }}
+        .footer {{ text-align: center; margin-top: 30px; padding: 20px; background: #f8f9fa; border-radius: 8px; }}
+        .urgent-message {{ background: #FFE6E6; padding: 15px; border-radius: 8px; border-left: 4px solid #DC3545; color: #721C24; font-weight: bold; }}
+    </style>
+</head>
+<body>
+    <div class='container'>
+        <div class='header'>
+            <h1>🔔 Nhắc hẹn tái khám</h1>
+            <p>Thú Y Bình Dương</p>
+        </div>
+        
+        <div class='content'>
+            <p>Xin chào <strong>{customerName}</strong>,</p>
+            
+            <p>Đây là lời nhắc hẹn tái khám cho thú cưng <strong>{petName}</strong> của bạn.</p>
+            
+            <div class='appointment-details'>
+                <h3>📅 Thông tin nhắc hẹn</h3>
+                <p><strong>Thú cưng:</strong> {petName}</p>
+                <p><strong>Dịch vụ tái khám:</strong> {serviceName}</p>
+                <p><strong>Ngày nhắc hẹn:</strong> {nextAppointmentDate}</p>
+            </div>
+            
+            {reminderNoteHtml}
+            
+            <div class='preparation'>
+                <h4>✅ Lưu ý quan trọng:</h4>
+                <ul>
+                    <li>Vui lòng liên hệ để đặt lịch hẹn cụ thể</li>
+                    <li>Mang theo thú cưng và các giấy tờ liên quan (nếu có)</li>
+                    <li>Chuẩn bị các câu hỏi bạn muốn hỏi bác sĩ</li>
+                    <li>Nếu có thay đổi, vui lòng thông báo trước</li>
+                </ul>
+            </div>
+            
+            <p style='text-align: center; margin-top: 20px;'>
+                <strong>Cảm ơn bạn đã tin tưởng dịch vụ của chúng tôi!</strong>
+            </p>
+        </div>
+        <div class='footer'>
+            <p><strong>Thú Y Bình Dương</strong></p>
+            <p>📞 Hotline: 0123456789</p>
+            <p>✉️ Email: info@thuybinhduong.com</p>
+            <p>🌐 Website: www.thuybinhduong.com</p>
+        </div>
+    </div>
+</body>
+</html>";
+        }
     }
 } 

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ThuYBinhDuongAPI.Data.Dtos;
 using ThuYBinhDuongAPI.Models;
+using ThuYBinhDuongAPI.Services;
 
 namespace ThuYBinhDuongAPI.Controllers
 {
@@ -12,11 +13,19 @@ namespace ThuYBinhDuongAPI.Controllers
     {
         private readonly ThuybinhduongContext _context;
         private readonly ILogger<ServiceController> _logger;
+        private readonly ServiceRecommendationService _recommendationService;
+        private readonly WeatherService _weatherService;
 
-        public ServiceController(ThuybinhduongContext context, ILogger<ServiceController> logger)
+        public ServiceController(
+            ThuybinhduongContext context, 
+            ILogger<ServiceController> logger,
+            ServiceRecommendationService recommendationService,
+            WeatherService weatherService)
         {
             _context = context;
             _logger = logger;
+            _recommendationService = recommendationService;
+            _weatherService = weatherService;
         }
 
         /// <summary>
@@ -608,6 +617,60 @@ namespace ThuYBinhDuongAPI.Controllers
             {
                 _logger.LogError(ex, "Error deleting service {ServiceId} for admin", id);
                 return StatusCode(500, new { message = "Đã xảy ra lỗi khi xóa dịch vụ" });
+            }
+        }
+
+        #endregion
+
+        #region Service Recommendations & Weather
+
+        /// <summary>
+        /// Lấy gợi ý dịch vụ dựa trên KNN algorithm cho khách hàng
+        /// </summary>
+        [HttpGet("recommendations/{customerId}")]
+        [Authorize]
+        public async Task<ActionResult<List<ServiceRecommendationDto>>> GetServiceRecommendations(int customerId)
+        {
+            try
+            {
+                // Kiểm tra customer có tồn tại không
+                var customer = await _context.Customers.FindAsync(customerId);
+                if (customer == null)
+                {
+                    return NotFound(new { message = "Không tìm thấy khách hàng" });
+                }
+
+                var recommendations = await _recommendationService.GetKNNRecommendationsForCustomer(customerId, k: 5);
+                
+                return Ok(recommendations);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting service recommendations for customer {CustomerId}", customerId);
+                return StatusCode(500, new { message = "Lỗi server khi lấy gợi ý dịch vụ" });
+            }
+        }
+
+        /// <summary>
+        /// Lấy thông tin thời tiết hiện tại (cho Bình Dương)
+        /// </summary>
+        [HttpGet("weather")]
+        [AllowAnonymous]
+        public async Task<ActionResult<WeatherInfo>> GetWeather()
+        {
+            try
+            {
+                var weather = await _weatherService.GetCurrentWeatherAsync();
+                if (weather == null)
+                {
+                    return StatusCode(500, new { message = "Không thể lấy thông tin thời tiết" });
+                }
+                return Ok(weather);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting weather");
+                return StatusCode(500, new { message = "Lỗi server khi lấy thông tin thời tiết" });
             }
         }
 

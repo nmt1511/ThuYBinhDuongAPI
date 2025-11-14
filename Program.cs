@@ -36,6 +36,16 @@ builder.Services.AddScoped<INotificationService, NotificationService>();
 // Thêm Reminder Service
 builder.Services.AddScoped<IReminderService, ReminderService>();
 
+// Thêm Background Service cho Reminder
+builder.Services.AddHostedService<ReminderBackgroundService>();
+
+// Thêm Service Recommendation Service (KNN)
+builder.Services.AddScoped<ServiceRecommendationService>();
+
+// Thêm Weather Service
+builder.Services.AddHttpClient<WeatherService>();
+builder.Services.AddScoped<WeatherService>();
+
 // Cấu hình Cloudinary
 var cloudinarySettings = builder.Configuration.GetSection("Cloudinary");
 var cloudinaryAccount = new Account(

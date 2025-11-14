@@ -34,7 +34,7 @@ namespace ThuYBinhDuongAPI.Controllers
         /// </summary>
         [HttpPost("cloudinary")]
         [AllowAnonymous] // TODO: Remove this after testing
-        public async Task<ActionResult<object>> UploadToCloudinary([FromForm] IFormFile file)
+        public async Task<ActionResult<object>> UploadToCloudinary(IFormFile file)
         {
             try
             {

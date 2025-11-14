@@ -49,7 +49,7 @@ namespace ThuYBinhDuongAPI.Models
 
         // Navigation properties
         [ForeignKey("CustomerId")]
-        public virtual User Customer { get; set; } = null!;
+        public virtual Customer Customer { get; set; } = null!;
 
         [ForeignKey("AdminUserId")]
         public virtual User? AdminUser { get; set; }

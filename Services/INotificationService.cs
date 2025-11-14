@@ -34,6 +34,16 @@ namespace ThuYBinhDuongAPI.Services
             string doctorName, 
             DateOnly appointmentDate, 
             string appointmentTime);
+        
+        /// <summary>
+        /// Tạo notification nhắc hẹn tái khám
+        /// </summary>
+        Task<bool> CreateReminderNotificationAsync(
+            int userId, 
+            string petName, 
+            string serviceName, 
+            DateTime nextAppointmentDate, 
+            string reminderNote);
     }
 }
 

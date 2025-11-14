@@ -367,10 +367,12 @@ public class DashboardController : ControllerBase
     [HttpGet("flexible")]
     [AuthorizeRole(1)] // Admin only
     public async Task<ActionResult<SimpleDashboardDto>> GetFlexibleDashboard(
-        [FromQuery] string filterType = "today", // today, specific-date, last-7-days, last-30-days, this-week, last-week, specific-month
+        [FromQuery] string filterType = "today", // today, specific-date, last-7-days, last-30-days, this-week, last-week, specific-month, date-range
         [FromQuery] string? specificDate = null, // Format: yyyy-MM-dd
         [FromQuery] int? month = null, // 1-12
-        [FromQuery] int? year = null) // yyyy
+        [FromQuery] int? year = null, // yyyy
+        [FromQuery] string? fromDate = null, // Format: yyyy-MM-dd (for date-range)
+        [FromQuery] string? toDate = null) // Format: yyyy-MM-dd (for date-range)
     {
         try
         {
@@ -429,6 +431,24 @@ public class DashboardController : ControllerBase
                     startDate = new DateTime(targetYear, month.Value, 1);
                     endDate = startDate.AddMonths(1).AddSeconds(-1);
                     displayPeriod = $"Tháng {month}/{targetYear}";
+                    break;
+
+                case "date-range":
+                    if (string.IsNullOrEmpty(fromDate) || string.IsNullOrEmpty(toDate))
+                    {
+                        return BadRequest(new { message = "Vui lòng chọn đầy đủ từ ngày và đến ngày" });
+                    }
+                    if (!DateTime.TryParse(fromDate, out var parsedFromDate) || !DateTime.TryParse(toDate, out var parsedToDate))
+                    {
+                        return BadRequest(new { message = "Định dạng ngày không hợp lệ. Sử dụng định dạng yyyy-MM-dd" });
+                    }
+                    if (parsedFromDate > parsedToDate)
+                    {
+                        return BadRequest(new { message = "Từ ngày không được lớn hơn đến ngày" });
+                    }
+                    startDate = parsedFromDate.Date;
+                    endDate = parsedToDate.Date.AddDays(1).AddSeconds(-1);
+                    displayPeriod = $"Từ {parsedFromDate:dd/MM/yyyy} đến {parsedToDate:dd/MM/yyyy}";
                     break;
 
                 case "today":
@@ -560,6 +580,14 @@ public class DashboardController : ControllerBase
                     previousEndDate = endDate.AddDays(-1);
                     currentPeriodLabel = startDate.ToString("dd/MM/yyyy");
                     previousPeriodLabel = previousStartDate.ToString("dd/MM/yyyy");
+                    break;
+                    
+                case "date-range":
+                    // Khoảng thời gian so với khoảng thời gian trước đó cùng độ dài
+                    previousStartDate = startDate.AddDays(-periodDays);
+                    previousEndDate = startDate.AddSeconds(-1);
+                    currentPeriodLabel = displayPeriod;
+                    previousPeriodLabel = $"Từ {previousStartDate:dd/MM/yyyy} đến {previousEndDate:dd/MM/yyyy}";
                     break;
                     
                 default:
@@ -884,7 +912,9 @@ public class DashboardController : ControllerBase
         [FromQuery] string filterType = "today",
         [FromQuery] string? specificDate = null,
         [FromQuery] int? month = null,
-        [FromQuery] int? year = null)
+        [FromQuery] int? year = null,
+        [FromQuery] string? fromDate = null, // Format: yyyy-MM-dd (for date-range)
+        [FromQuery] string? toDate = null) // Format: yyyy-MM-dd (for date-range)
     {
         try
         {
@@ -939,6 +969,23 @@ public class DashboardController : ControllerBase
                     endDate = startDate.AddMonths(1).AddSeconds(-1);
                     break;
 
+                case "date-range":
+                    if (string.IsNullOrEmpty(fromDate) || string.IsNullOrEmpty(toDate))
+                    {
+                        return BadRequest(new { message = "Vui lòng chọn đầy đủ từ ngày và đến ngày" });
+                    }
+                    if (!DateTime.TryParse(fromDate, out var parsedFromDate) || !DateTime.TryParse(toDate, out var parsedToDate))
+                    {
+                        return BadRequest(new { message = "Định dạng ngày không hợp lệ. Sử dụng định dạng yyyy-MM-dd" });
+                    }
+                    if (parsedFromDate > parsedToDate)
+                    {
+                        return BadRequest(new { message = "Từ ngày không được lớn hơn đến ngày" });
+                    }
+                    startDate = parsedFromDate.Date;
+                    endDate = parsedToDate.Date.AddDays(1).AddSeconds(-1);
+                    break;
+
                 case "today":
                 default:
                     startDate = DateTime.Today;
@@ -950,9 +997,11 @@ public class DashboardController : ControllerBase
             var allServices = await _context.Services.ToListAsync();
             var totalServices = allServices.Count;
 
-            // Lấy appointments trong khoảng thời gian
+            // Lấy appointments trong khoảng thời gian (filter theo AppointmentDate - ngày thực tế của lịch hẹn)
+            var startDateOnly = DateOnly.FromDateTime(startDate);
+            var endDateOnly = DateOnly.FromDateTime(endDate.Date);
             var appointments = await _context.Appointments
-                .Where(a => a.CreatedAt.HasValue && a.CreatedAt.Value >= startDate && a.CreatedAt.Value <= endDate)
+                .Where(a => a.AppointmentDate >= startDateOnly && a.AppointmentDate <= endDateOnly)
                 .Include(a => a.Service)
                 .ToListAsync();
 
@@ -1023,7 +1072,9 @@ public class DashboardController : ControllerBase
         [FromQuery] string filterType = "today",
         [FromQuery] string? specificDate = null,
         [FromQuery] int? month = null,
-        [FromQuery] int? year = null)
+        [FromQuery] int? year = null,
+        [FromQuery] string? fromDate = null, // Format: yyyy-MM-dd (for date-range)
+        [FromQuery] string? toDate = null) // Format: yyyy-MM-dd (for date-range)
     {
         try
         {
@@ -1078,6 +1129,23 @@ public class DashboardController : ControllerBase
                     endDate = startDate.AddMonths(1).AddSeconds(-1);
                     break;
 
+                case "date-range":
+                    if (string.IsNullOrEmpty(fromDate) || string.IsNullOrEmpty(toDate))
+                    {
+                        return BadRequest(new { message = "Vui lòng chọn đầy đủ từ ngày và đến ngày" });
+                    }
+                    if (!DateTime.TryParse(fromDate, out var parsedFromDate) || !DateTime.TryParse(toDate, out var parsedToDate))
+                    {
+                        return BadRequest(new { message = "Định dạng ngày không hợp lệ. Sử dụng định dạng yyyy-MM-dd" });
+                    }
+                    if (parsedFromDate > parsedToDate)
+                    {
+                        return BadRequest(new { message = "Từ ngày không được lớn hơn đến ngày" });
+                    }
+                    startDate = parsedFromDate.Date;
+                    endDate = parsedToDate.Date.AddDays(1).AddSeconds(-1);
+                    break;
+
                 case "today":
                 default:
                     startDate = DateTime.Today;
@@ -1115,9 +1183,11 @@ public class DashboardController : ControllerBase
                 ? Math.Round((double)(newCustomers - previousNewCustomers) / previousNewCustomers * 100, 2) 
                 : 0;
 
-            // Trung bình lịch hẹn mỗi khách hàng
+            // Trung bình lịch hẹn mỗi khách hàng (filter theo AppointmentDate)
+            var appointmentStartDateOnly = DateOnly.FromDateTime(startDate);
+            var appointmentEndDateOnly = DateOnly.FromDateTime(endDate.Date);
             var totalAppointments = await _context.Appointments
-                .Where(a => a.CreatedAt.HasValue && a.CreatedAt.Value >= startDate && a.CreatedAt.Value <= endDate)
+                .Where(a => a.AppointmentDate >= appointmentStartDateOnly && a.AppointmentDate <= appointmentEndDateOnly)
                 .CountAsync();
             var averageAppointmentsPerCustomer = totalCustomers > 0 
                 ? Math.Round((double)totalAppointments / totalCustomers, 2) 
@@ -1129,22 +1199,25 @@ public class DashboardController : ControllerBase
                 ? Math.Round((double)totalPets / totalCustomers, 2) 
                 : 0;
 
-            // Top khách hàng
+            // Top khách hàng (filter theo AppointmentDate)
             var topCustomers = await _context.Customers
                 .Include(c => c.User)
                 .Include(c => c.Pets)
-                    .ThenInclude(p => p.Appointments.Where(a => a.CreatedAt.HasValue && a.CreatedAt.Value >= startDate && a.CreatedAt.Value <= endDate))
+                    .ThenInclude(p => p.Appointments.Where(a => a.AppointmentDate >= appointmentStartDateOnly && a.AppointmentDate <= appointmentEndDateOnly))
                         .ThenInclude(a => a.Service)
                 .Select(c => new
                 {
                     Customer = c,
-                    AppointmentCount = c.Pets.SelectMany(p => p.Appointments).Count(),
+                    AppointmentCount = c.Pets.SelectMany(p => p.Appointments)
+                        .Where(a => a.AppointmentDate >= appointmentStartDateOnly && a.AppointmentDate <= appointmentEndDateOnly)
+                        .Count(),
                     TotalSpent = c.Pets.SelectMany(p => p.Appointments)
-                        .Where(a => a.Status == 2 && a.Service != null && a.Service.Price.HasValue)
+                        .Where(a => a.AppointmentDate >= appointmentStartDateOnly && a.AppointmentDate <= appointmentEndDateOnly && a.Status == 2 && a.Service != null && a.Service.Price.HasValue)
                         .Sum(a => a.Service!.Price!.Value),
                     LastVisit = c.Pets.SelectMany(p => p.Appointments)
-                        .OrderByDescending(a => a.CreatedAt)
-                        .Select(a => a.CreatedAt)
+                        .Where(a => a.AppointmentDate >= appointmentStartDateOnly && a.AppointmentDate <= appointmentEndDateOnly)
+                        .OrderByDescending(a => a.AppointmentDate)
+                        .Select(a => (DateTime?)a.AppointmentDate.ToDateTime(TimeOnly.MinValue))
                         .FirstOrDefault()
                 })
                 .Where(x => x.AppointmentCount > 0)

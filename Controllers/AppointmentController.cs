@@ -328,7 +328,7 @@ namespace ThuYBinhDuongAPI.Controllers
                     IsNewPet = createDto.IsNewPet,
                     Status = 0, // Chờ xác nhận
                     Notes = createDto.Notes,
-                    CreatedAt = DateTime.UtcNow
+                    CreatedAt = GetVietnamTime() // Giờ Việt Nam (UTC+7)
                 };
 
                 _context.Appointments.Add(appointment);
@@ -465,6 +465,16 @@ namespace ThuYBinhDuongAPI.Controllers
                 3 => "Đã hủy",
                 _ => "Không xác định"
             };
+        }
+
+        /// <summary>
+        /// Lấy thời gian hiện tại theo giờ Việt Nam (UTC+7)
+        /// </summary>
+        private static DateTime GetVietnamTime()
+        {
+            var utcNow = DateTime.UtcNow;
+            var vietnamTimeZone = TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time");
+            return TimeZoneInfo.ConvertTimeFromUtc(utcNow, vietnamTimeZone);
         }
 
         #region Admin Methods
@@ -763,7 +773,7 @@ namespace ThuYBinhDuongAPI.Controllers
                     IsNewPet = createDto.IsNewPet,
                     Status = 0, // Admin tạo lịch cũng để trạng thái "Chờ xác nhận"
                     Notes = createDto.Notes,
-                    CreatedAt = DateTime.UtcNow
+                    CreatedAt = GetVietnamTime() // Giờ Việt Nam (UTC+7)
                 };
 
                 _context.Appointments.Add(appointment);

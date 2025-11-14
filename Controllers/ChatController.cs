@@ -180,7 +180,7 @@ namespace ThuYBinhDuongAPI.Controllers
         /// </summary>
         [HttpGet("room/{roomId}/messages")]
         [AuthorizeRole(0)] // Chỉ khách hàng
-        public async Task<ActionResult<object>> GetChatMessages(int roomId, [FromQuery] int page = 1, [FromQuery] int limit = 50)
+        public async Task<ActionResult<object>> GetChatMessages(int roomId, [FromQuery] int limit = 20, [FromQuery] int? beforeMessageId = null)
         {
             try
             {
@@ -199,18 +199,24 @@ namespace ThuYBinhDuongAPI.Controllers
                     return NotFound(new { message = "Không tìm thấy phòng chat" });
                 }
 
-                // Lấy tổng số tin nhắn để tính toán skip
-                var totalMessages = await _context.ChatMessages.CountAsync(cm => cm.RoomId == roomId);
-                
-                // Tính toán để lấy N tin nhắn mới nhất
-                // Ví dụ: Có 500 tin nhắn, muốn lấy 200 tin nhắn mới nhất -> skip = 500 - 200 = 300
-                var skip = Math.Max(0, totalMessages - limit);
-                
-                var messages = await _context.ChatMessages
-                    .Where(cm => cm.RoomId == roomId)
-                    .OrderBy(cm => cm.CreatedAt) // Vẫn sắp xếp tăng dần để hiển thị đúng thứ tự
-                    .Skip(skip) // Bỏ qua các tin nhắn cũ
-                    .Take(limit) // Lấy N tin nhắn mới nhất
+                var query = _context.ChatMessages
+                    .Where(cm => cm.RoomId == roomId);
+
+                // Nếu có beforeMessageId, chỉ lấy tin nhắn cũ hơn tin nhắn đó
+                if (beforeMessageId.HasValue)
+                {
+                    var beforeMessage = await _context.ChatMessages.FindAsync(beforeMessageId.Value);
+                    if (beforeMessage != null && beforeMessage.RoomId == roomId)
+                    {
+                        query = query.Where(cm => cm.CreatedAt < beforeMessage.CreatedAt);
+                    }
+                }
+
+                // Lấy tin nhắn mới nhất trước, sắp xếp giảm dần theo thời gian
+                var messages = await query
+                    .OrderByDescending(cm => cm.CreatedAt)
+                    .ThenByDescending(cm => cm.MessageId)
+                    .Take(limit)
                     .Select(cm => new
                     {
                         messageId = cm.MessageId,
@@ -226,6 +232,9 @@ namespace ThuYBinhDuongAPI.Controllers
                     })
                     .ToListAsync();
 
+                // Đảo ngược để sắp xếp theo thứ tự thời gian tăng dần (cũ -> mới) cho frontend
+                messages.Reverse();
+
                 // Đánh dấu tin nhắn đã đọc (sử dụng raw SQL)
                 await _context.Database.ExecuteSqlRawAsync(
                     "UPDATE ChatMessage SET is_read = 1 WHERE room_id = {0} AND sender_id != {1} AND sender_type != {2}",
@@ -236,15 +245,29 @@ namespace ThuYBinhDuongAPI.Controllers
                     "UPDATE ChatRoom SET unread_count_customer = 0 WHERE room_id = {0}",
                     new object[] { roomId });
 
+                var totalMessages = await _context.ChatMessages.CountAsync(cm => cm.RoomId == roomId);
+                var oldestMessageId = messages.Count > 0 ? messages[0].messageId : (int?)null;
+                var hasMore = false;
+                if (oldestMessageId.HasValue)
+                {
+                    var oldestMessage = await _context.ChatMessages.FindAsync(oldestMessageId.Value);
+                    if (oldestMessage != null)
+                    {
+                        hasMore = await _context.ChatMessages
+                            .AnyAsync(cm => cm.RoomId == roomId && cm.CreatedAt < oldestMessage.CreatedAt);
+                    }
+                }
+
                 _logger.LogInformation($"Customer {customerId} retrieved {messages.Count} messages from room {roomId}");
                 return Ok(new
                 {
                     messages = messages,
                     pagination = new
                     {
-                        page = page,
                         limit = limit,
-                        total = _context.ChatMessages.Count(cm => cm.RoomId == roomId)
+                        total = totalMessages,
+                        hasMore = hasMore,
+                        oldestMessageId = oldestMessageId
                     }
                 });
             }
@@ -628,7 +651,7 @@ namespace ThuYBinhDuongAPI.Controllers
         /// </summary>
         [HttpGet("admin/room/{roomId}/messages")]
         [AuthorizeRole(1)] // Chỉ admin
-        public async Task<ActionResult<object>> GetAdminChatMessages(int roomId, [FromQuery] int page = 1, [FromQuery] int limit = 50)
+        public async Task<ActionResult<object>> GetAdminChatMessages(int roomId, [FromQuery] int limit = 20, [FromQuery] int? beforeMessageId = null)
         {
             try
             {
@@ -647,17 +670,24 @@ namespace ThuYBinhDuongAPI.Controllers
                     return NotFound(new { message = "Không tìm thấy phòng chat" });
                 }
 
-                // Lấy tổng số tin nhắn để tính toán skip (giống customer endpoint)
-                var totalMessages = await _context.ChatMessages.CountAsync(cm => cm.RoomId == roomId);
-                
-                // Tính toán để lấy N tin nhắn mới nhất
-                var skip = Math.Max(0, totalMessages - limit);
-                
-                var messages = await _context.ChatMessages
-                    .Where(cm => cm.RoomId == roomId)
-                    .OrderBy(cm => cm.CreatedAt) // Vẫn sắp xếp tăng dần để hiển thị đúng thứ tự
-                    .Skip(skip) // Bỏ qua các tin nhắn cũ
-                    .Take(limit) // Lấy N tin nhắn mới nhất
+                var query = _context.ChatMessages
+                    .Where(cm => cm.RoomId == roomId);
+
+                // Nếu có beforeMessageId, chỉ lấy tin nhắn cũ hơn tin nhắn đó
+                if (beforeMessageId.HasValue)
+                {
+                    var beforeMessage = await _context.ChatMessages.FindAsync(beforeMessageId.Value);
+                    if (beforeMessage != null && beforeMessage.RoomId == roomId)
+                    {
+                        query = query.Where(cm => cm.CreatedAt < beforeMessage.CreatedAt);
+                    }
+                }
+
+                // Lấy tin nhắn mới nhất trước, sắp xếp giảm dần theo thời gian
+                var messages = await query
+                    .OrderByDescending(cm => cm.CreatedAt)
+                    .ThenByDescending(cm => cm.MessageId)
+                    .Take(limit)
                     .Select(cm => new
                     {
                         messageId = cm.MessageId,
@@ -673,6 +703,9 @@ namespace ThuYBinhDuongAPI.Controllers
                     })
                     .ToListAsync();
 
+                // Đảo ngược để sắp xếp theo thứ tự thời gian tăng dần (cũ -> mới) cho frontend
+                messages.Reverse();
+
                 // Đánh dấu tin nhắn đã đọc cho admin
                 await _context.Database.ExecuteSqlRawAsync(
                     "UPDATE ChatMessage SET is_read = 1 WHERE room_id = {0} AND sender_id != {1} AND sender_type != {2}",
@@ -683,15 +716,29 @@ namespace ThuYBinhDuongAPI.Controllers
                     "UPDATE ChatRoom SET unread_count_admin = 0 WHERE room_id = {0}",
                     new object[] { roomId });
 
+                var totalMessages = await _context.ChatMessages.CountAsync(cm => cm.RoomId == roomId);
+                var oldestMessageId = messages.Count > 0 ? messages[0].messageId : (int?)null;
+                var hasMore = false;
+                if (oldestMessageId.HasValue)
+                {
+                    var oldestMessage = await _context.ChatMessages.FindAsync(oldestMessageId.Value);
+                    if (oldestMessage != null)
+                    {
+                        hasMore = await _context.ChatMessages
+                            .AnyAsync(cm => cm.RoomId == roomId && cm.CreatedAt < oldestMessage.CreatedAt);
+                    }
+                }
+
                 _logger.LogInformation($"Admin {adminId} retrieved {messages.Count} messages from room {roomId}");
                 return Ok(new
                 {
                     messages = messages,
                     pagination = new
                     {
-                        page = page,
                         limit = limit,
-                        total = _context.ChatMessages.Count(cm => cm.RoomId == roomId)
+                        total = totalMessages,
+                        hasMore = hasMore,
+                        oldestMessageId = oldestMessageId
                     }
                 });
             }
