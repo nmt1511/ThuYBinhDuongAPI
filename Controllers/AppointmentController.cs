@@ -313,7 +313,7 @@ namespace ThuYBinhDuongAPI.Controllers
 
                 if (existingAppointment)
                 {
-                    return BadRequest(new { message = "Thú cưng đã có lịch hẹn vào thời gian này" });
+                    return BadRequest("Thú cưng đã có lịch hẹn vào thời gian này");
                 }
 
                 var appointment = new Appointment
@@ -758,7 +758,8 @@ namespace ThuYBinhDuongAPI.Controllers
 
                 if (existingAppointment)
                 {
-                    return BadRequest(new { message = "Thú cưng đã có lịch hẹn vào thời gian này" });
+                    // Trả về chuỗi đơn giản thay vì object { message = ... } (admin tạo lịch)
+                    return BadRequest("Thú cưng đã có lịch hẹn vào thời gian này");
                 }
 
                 var appointment = new Appointment

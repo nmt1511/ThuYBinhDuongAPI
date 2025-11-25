@@ -60,8 +60,20 @@ namespace ThuYBinhDuongAPI.Services
             DateOnly appointmentDate, 
             string appointmentTime)
         {
-            var title = "Lịch hẹn thay đổi trạng thái";
-            var body = $"Lịch hẹn của {petName} - {serviceName} đã thay đổi từ '{oldStatus}' sang '{newStatus}'";
+            string title;
+            string body;
+            
+            // Nếu trạng thái mới là Hoàn thành, dùng message đặc biệt
+            if (newStatus == "Hoàn thành")
+            {
+                title = $"Bạn đã hoàn thành lịch hẹn {serviceName} của {petName}";
+                body = $"Cảm ơn bạn đã sử dụng dịch vụ {serviceName} cho {petName} vào ngày {appointmentDate.ToString("dd/MM/yyyy")}";
+            }
+            else
+            {
+                title = "Lịch hẹn thay đổi trạng thái";
+                body = $"Lịch hẹn của {petName} - {serviceName} đã thay đổi từ '{oldStatus}' sang '{newStatus}'";
+            }
             
             var data = new
             {
