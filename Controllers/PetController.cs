@@ -693,8 +693,7 @@ namespace ThuYBinhDuongAPI.Controllers
                         CustomerName = p.Customer.CustomerName,
                         VaccinatedVaccines = p.VaccinatedVaccines
                     })
-                    .OrderBy(p => p.CustomerName)
-                    .ThenBy(p => p.Name)
+                    .OrderByDescending(p => p.PetId)
                     .Skip(skip)
                     .Take(limit)
                     .ToListAsync();

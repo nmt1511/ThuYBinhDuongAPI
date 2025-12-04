@@ -92,7 +92,7 @@ namespace ThuYBinhDuongAPI.Services
                             
                             if (recommendedServiceIds.ContainsKey(service.ServiceId))
                             {
-                                recommendedServiceIds[service.ServiceId] += score;
+                                recommendedServiceIds[service.ServiceId] += score; 
                             }
                             else
                             {
