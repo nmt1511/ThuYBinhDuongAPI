@@ -21,5 +21,12 @@ namespace ThuYBinhDuongAPI.Data.Dtos
         public string? Category { get; set; }
 
         public bool? IsActive { get; set; }
+
+        /// <summary>
+        /// Số ngày chu kỳ khuyến nghị sử dụng lại dịch vụ
+        /// VD: 60 (da liễu), 90 (spa/grooming), 180 (nha khoa), 365 (tiêm phòng)
+        /// </summary>
+        [Range(1, 3650, ErrorMessage = "Chu kỳ phải từ 1 đến 3650 ngày")]
+        public int? RecurrenceDays { get; set; }
     }
 } 

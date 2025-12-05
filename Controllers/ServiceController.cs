@@ -77,6 +77,7 @@ namespace ThuYBinhDuongAPI.Controllers
                         Duration = s.Duration,
                         Category = s.Category,
                         IsActive = s.IsActive,
+                        RecurrenceDays = s.RecurrenceDays,
                         DisplayText = CreateDisplayText(s.Name, s.Price, s.Duration),
                         PriceText = CreatePriceText(s.Price),
                         DurationText = CreateDurationText(s.Duration)
@@ -141,6 +142,7 @@ namespace ThuYBinhDuongAPI.Controllers
                         Duration = s.Duration,
                         Category = s.Category,
                         IsActive = s.IsActive,
+                        RecurrenceDays = s.RecurrenceDays,
                         DisplayText = CreateDisplayText(s.Name, s.Price, s.Duration),
                         PriceText = CreatePriceText(s.Price),
                         DurationText = CreateDurationText(s.Duration)
@@ -179,6 +181,7 @@ namespace ThuYBinhDuongAPI.Controllers
                         Duration = s.Duration,
                         Category = s.Category,
                         IsActive = s.IsActive,
+                        RecurrenceDays = s.RecurrenceDays,
                         DisplayText = CreateDisplayText(s.Name, s.Price, s.Duration),
                         PriceText = CreatePriceText(s.Price),
                         DurationText = CreateDurationText(s.Duration)
@@ -223,6 +226,70 @@ namespace ThuYBinhDuongAPI.Controllers
             {
                 _logger.LogError(ex, "Error retrieving service categories");
                 return StatusCode(500, new { message = "Đã xảy ra lỗi khi lấy danh sách danh mục" });
+            }
+        }
+
+        /// <summary>
+        /// Lấy danh sách dịch vụ phổ biến (trending) dựa trên số lượng appointments trong N ngày gần nhất
+        /// </summary>
+        [HttpGet("trending")]
+        [AllowAnonymous]
+        public async Task<ActionResult<IEnumerable<ServiceResponseDto>>> GetTrendingServices(
+            [FromQuery] int days = 7,
+            [FromQuery] int limit = 5)
+        {
+            try
+            {
+                var startDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-days));
+
+                // Lấy top dịch vụ được đặt nhiều nhất trong N ngày gần đây (Status = 2 = Completed)
+                var trendingServiceIds = await _context.Appointments
+                    .Where(a => a.AppointmentDate >= startDate && a.Status == 2)
+                    .GroupBy(a => a.ServiceId)
+                    .Select(g => new { ServiceId = g.Key, Count = g.Count() })
+                    .OrderByDescending(x => x.Count)
+                    .Take(limit)
+                    .Select(x => x.ServiceId)
+                    .ToListAsync();
+
+                if (!trendingServiceIds.Any())
+                {
+                    return Ok(new List<ServiceResponseDto>());
+                }
+
+                // Lấy thông tin chi tiết các dịch vụ trending
+                var trendingServices = await _context.Services
+                    .Where(s => trendingServiceIds.Contains(s.ServiceId) && (s.IsActive == true || s.IsActive == null))
+                    .Select(s => new ServiceResponseDto
+                    {
+                        ServiceId = s.ServiceId,
+                        Name = s.Name,
+                        Description = s.Description,
+                        Price = s.Price,
+                        Duration = s.Duration,
+                        Category = s.Category,
+                        IsActive = s.IsActive,
+                        RecurrenceDays = s.RecurrenceDays,
+                        DisplayText = CreateDisplayText(s.Name, s.Price, s.Duration),
+                        PriceText = CreatePriceText(s.Price),
+                        DurationText = CreateDurationText(s.Duration)
+                    })
+                    .ToListAsync();
+
+                // Sắp xếp lại theo thứ tự trending (số lần đặt nhiều nhất)
+                var orderedServices = trendingServiceIds
+                    .Select(id => trendingServices.FirstOrDefault(s => s.ServiceId == id))
+                    .Where(s => s != null)
+                    .Cast<ServiceResponseDto>()
+                    .ToList();
+
+                _logger.LogInformation($"Retrieved {orderedServices.Count} trending services from last {days} days");
+                return Ok(orderedServices);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving trending services");
+                return StatusCode(500, new { message = "Đã xảy ra lỗi khi lấy danh sách dịch vụ phổ biến" });
             }
         }
 
@@ -469,7 +536,8 @@ namespace ThuYBinhDuongAPI.Controllers
                     Price = createDto.Price,
                     Duration = createDto.Duration,
                     Category = createDto.Category,
-                    IsActive = createDto.IsActive ?? true
+                    IsActive = createDto.IsActive ?? true,
+                    RecurrenceDays = createDto.RecurrenceDays
                 };
 
                 _context.Services.Add(service);
@@ -484,6 +552,7 @@ namespace ThuYBinhDuongAPI.Controllers
                     Duration = service.Duration,
                     Category = service.Category,
                     IsActive = service.IsActive,
+                    RecurrenceDays = service.RecurrenceDays,
                     DisplayText = CreateDisplayText(service.Name, service.Price, service.Duration),
                     PriceText = CreatePriceText(service.Price),
                     DurationText = CreateDurationText(service.Duration)
@@ -535,6 +604,7 @@ namespace ThuYBinhDuongAPI.Controllers
                 service.Duration = updateDto.Duration;
                 service.Category = updateDto.Category;
                 service.IsActive = updateDto.IsActive ?? service.IsActive;
+                service.RecurrenceDays = updateDto.RecurrenceDays;
 
                 await _context.SaveChangesAsync();
 
@@ -629,7 +699,9 @@ namespace ThuYBinhDuongAPI.Controllers
         /// </summary>
         [HttpGet("recommendations/{customerId}")]
         [Authorize]
-        public async Task<ActionResult<List<ServiceRecommendationDto>>> GetServiceRecommendations(int customerId)
+        public async Task<ActionResult<List<ServiceRecommendationDto>>> GetServiceRecommendations(
+            int customerId, 
+            [FromQuery] int k = 5)
         {
             try
             {
@@ -640,7 +712,7 @@ namespace ThuYBinhDuongAPI.Controllers
                     return NotFound(new { message = "Không tìm thấy khách hàng" });
                 }
 
-                var recommendations = await _recommendationService.GetKNNRecommendationsForCustomer(customerId, k: 5);
+                var recommendations = await _recommendationService.GetKNNRecommendationsForCustomer(customerId, k);
                 
                 return Ok(recommendations);
             }
@@ -648,6 +720,70 @@ namespace ThuYBinhDuongAPI.Controllers
             {
                 _logger.LogError(ex, "Error getting service recommendations for customer {CustomerId}", customerId);
                 return StatusCode(500, new { message = "Lỗi server khi lấy gợi ý dịch vụ" });
+            }
+        }
+
+        /// <summary>
+        /// Lấy danh sách dịch vụ trending (được sử dụng nhiều nhất trong N ngày gần đây)
+        /// </summary>
+        [HttpGet("popular")]
+        [AllowAnonymous]
+        public async Task<ActionResult<List<ServiceResponseDto>>> GetPopularServices([FromQuery] int days = 7)
+        {
+            try
+            {
+                // Lấy ngày bắt đầu tính
+                var startDate = DateOnly.FromDateTime(DateTime.Now.AddDays(-days));
+                
+                // Query appointments completed trong khoảng thời gian
+                var trendingServices = await _context.Appointments
+                    .Where(a => a.Status == 2 && a.AppointmentDate >= startDate) // Status 2 = Completed
+                    .GroupBy(a => a.ServiceId)
+                    .Select(g => new
+                    {
+                        ServiceId = g.Key,
+                        UsageCount = g.Count()
+                    })
+                    .OrderByDescending(x => x.UsageCount)
+                    .Take(10)
+                    .ToListAsync();
+
+                // Lấy thông tin chi tiết dịch vụ
+                var serviceIds = trendingServices.Select(t => t.ServiceId).ToList();
+                var services = await _context.Services
+                    .Where(s => serviceIds.Contains(s.ServiceId) && s.IsActive == true)
+                    .ToListAsync();
+
+                // Map kết quả
+                var result = trendingServices
+                    .Select(t =>
+                    {
+                        var service = services.FirstOrDefault(s => s.ServiceId == t.ServiceId);
+                        if (service == null) return null;
+                        
+                        return new ServiceResponseDto
+                        {
+                            ServiceId = service.ServiceId,
+                            Name = service.Name,
+                            Description = service.Description,
+                            Price = service.Price,
+                            Duration = service.Duration,
+                            Category = service.Category,
+                            IsActive = service.IsActive,
+                            DisplayText = CreateDisplayText(service.Name, service.Price, service.Duration),
+                            PriceText = CreatePriceText(service.Price),
+                            DurationText = CreateDurationText(service.Duration)
+                        };
+                    })
+                    .Where(s => s != null)
+                    .ToList();
+
+                return Ok(result!);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting trending services for {Days} days", days);
+                return StatusCode(500, new { message = "Lỗi server khi lấy dịch vụ trending" });
             }
         }
 

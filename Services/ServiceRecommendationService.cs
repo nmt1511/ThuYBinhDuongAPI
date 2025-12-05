@@ -56,16 +56,17 @@ namespace ThuYBinhDuongAPI.Services
                         otherHistory
                     );
 
-                    if (similarity > 0.2) // Threshold
+                    if (similarity > 0) // Có similarity
                     {
                         customerSimilarities.Add((otherCustomerId, similarity));
                     }
                 }
 
-                // 4. Tìm k khách hàng gần nhất (KNN)
+                // 4. Tìm k khách hàng gần nhất (KNN) - CHỈ LẤY TOP K
                 var nearestNeighbors = customerSimilarities
                     .OrderByDescending(x => x.Similarity)
                     .Take(k)
+                    .Where(x => x.Similarity > 0.2) // Threshold sau khi đã lấy top K
                     .ToList();
 
                 if (nearestNeighbors.Count == 0)
@@ -73,11 +74,13 @@ namespace ThuYBinhDuongAPI.Services
                     return await GetPopularServices(10);
                 }
 
-                // 5. Lấy dịch vụ từ k neighbors mà khách hàng hiện tại chưa dùng
+                // 5. Lấy TẤT CẢ dịch vụ từ k neighbors (bao gồm cả dịch vụ đã dùng)
                 var recommendedServiceIds = new Dictionary<int, double>(); // ServiceId -> Total Score
                 var currentCustomerUsedServices = currentCustomerHistory
                     .Select(h => h.ServiceId)
                     .ToHashSet();
+
+                _logger.LogInformation($"Processing {nearestNeighbors.Count} nearest neighbors for customer {customerId}");
 
                 foreach (var (neighborId, similarity) in nearestNeighbors)
                 {
@@ -85,27 +88,35 @@ namespace ThuYBinhDuongAPI.Services
                     
                     foreach (var service in neighborServices)
                     {
-                        if (!currentCustomerUsedServices.Contains(service.ServiceId))
+                        // THAY ĐỔI: Không filter dịch vụ đã sử dụng, tính điểm cho TẤT CẢ
+                        var score = similarity * service.UsageCount;
+                        
+                        _logger.LogInformation($"Neighbor {neighborId}, Service {service.ServiceId}, Similarity: {similarity:F3}, UsageCount: {service.UsageCount}, Score: {score:F3}");
+                        
+                        if (recommendedServiceIds.ContainsKey(service.ServiceId))
                         {
-                            // Tính điểm: similarity * usage frequency
-                            var score = similarity * service.UsageCount;
-                            
-                            if (recommendedServiceIds.ContainsKey(service.ServiceId))
-                            {
-                                recommendedServiceIds[service.ServiceId] += score; 
-                            }
-                            else
-                            {
-                                recommendedServiceIds[service.ServiceId] = score;
-                            }
+                            recommendedServiceIds[service.ServiceId] += score; 
+                        }
+                        else
+                        {
+                            recommendedServiceIds[service.ServiceId] = score;
                         }
                     }
                 }
+                
+                // Log final scores
+                foreach (var kvp in recommendedServiceIds.OrderByDescending(x => x.Value))
+                {
+                    _logger.LogInformation($"Final Score - ServiceId {kvp.Key}: {kvp.Value:F3}");
+                }
 
                 // 6. Lấy thông tin dịch vụ được đề xuất
-                var recommendations = await _context.Services
-                    .Where(s => recommendedServiceIds.Keys.Contains(s.ServiceId) && 
-                               s.IsActive == true)
+                var serviceIds = recommendedServiceIds.Keys.ToList();
+                var services = await _context.Services
+                    .Where(s => serviceIds.Contains(s.ServiceId) && s.IsActive == true)
+                    .ToListAsync();
+
+                var recommendations = services
                     .Select(s => new ServiceRecommendationDto
                     {
                         ServiceId = s.ServiceId,
@@ -113,12 +124,14 @@ namespace ThuYBinhDuongAPI.Services
                         Description = s.Description,
                         Price = s.Price,
                         Category = s.Category,
-                        RecommendationScore = (int)recommendedServiceIds[s.ServiceId],
-                        Reason = $"Được đề xuất dựa trên hành vi của {nearestNeighbors.Count} khách hàng tương tự"
+                        RecommendationScore = recommendedServiceIds[s.ServiceId],
+                        Reason = currentCustomerUsedServices.Contains(s.ServiceId)
+                            ? $"Đã sử dụng - Được đề xuất dựa trên {nearestNeighbors.Count} khách hàng tương tự"
+                            : $"Dịch vụ mới - Được đề xuất dựa trên {nearestNeighbors.Count} khách hàng tương tự"
                     })
                     .OrderByDescending(r => r.RecommendationScore)
                     .Take(10)
-                    .ToListAsync();
+                    .ToList();
 
                 return recommendations;
             }
@@ -217,7 +230,7 @@ namespace ThuYBinhDuongAPI.Services
                     Description = g.First().Service.Description,
                     Price = g.First().Service.Price,
                     Category = g.First().Service.Category,
-                    RecommendationScore = g.Count(),
+                    RecommendationScore = (double)g.Count(),
                     Reason = "Dịch vụ phổ biến"
                 })
                 .ToList();
@@ -239,7 +252,7 @@ namespace ThuYBinhDuongAPI.Services
         public string? Description { get; set; }
         public decimal? Price { get; set; }
         public string? Category { get; set; }
-        public int RecommendationScore { get; set; }
+        public double RecommendationScore { get; set; }
         public string Reason { get; set; } = string.Empty;
     }
 }

@@ -10,6 +10,11 @@ namespace ThuYBinhDuongAPI.Data.Dtos
         public string? Category { get; set; }
         public bool? IsActive { get; set; }
         
+        /// <summary>
+        /// Số ngày chu kỳ khuyến nghị sử dụng lại dịch vụ
+        /// </summary>
+        public int? RecurrenceDays { get; set; }
+        
         // Thông tin hiển thị
         public string DisplayText { get; set; } = null!; // "Tên dịch vụ - Giá (nếu có)"
         public string? PriceText { get; set; } // "500,000 VNĐ" hoặc "Liên hệ"

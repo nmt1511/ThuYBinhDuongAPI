@@ -19,5 +19,11 @@ public partial class Service
 
     public bool? IsActive { get; set; }
 
+    /// <summary>
+    /// Số ngày chu kỳ khuyến nghị sử dụng lại dịch vụ
+    /// VD: 60 ngày (da liễu), 90 ngày (spa/grooming), 180 ngày (nha khoa), 365 ngày (tiêm phòng)
+    /// </summary>
+    public int? RecurrenceDays { get; set; }
+
     public virtual ICollection<Appointment> Appointments { get; set; } = new List<Appointment>();
 }
